@@ -141,6 +141,7 @@ class SelfAttention(nn.Module):
         assert config.embed_dim % config.num_heads == 0
         assert config.attention in ('causal', 'block_causal')
         self.num_heads = config.num_heads
+        self.n_embed = config.embed_dim
 
         # Attention
         self.c_attn = nn.Linear(config.embed_dim, 3 * config.embed_dim)
@@ -165,10 +166,10 @@ class SelfAttention(nn.Module):
         else:
             L = 0
 
-        q, k, v = self.c_attn(x).split(self.n_embd, dim=2)
-        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
-        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
-        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
+        q, k, v = self.c_attn(x).split(self.n_embed, dim=2)
+        k = k.view(B, T, self.num_heads, C // self.num_heads).transpose(1, 2)  # (B, nh, T, hs)
+        q = q.view(B, T, self.num_heads, C // self.num_heads).transpose(1, 2)  # (B, nh, T, hs)
+        v = v.view(B, T, self.num_heads, C // self.num_heads).transpose(1, 2)  # (B, nh, T, hs)
         # q = self.query(x).view(B, T, self.num_heads, C // self.num_heads).transpose(1, 2)   # (B, nh, T, hs)
         # k = self.key(x).view(B, T, self.num_heads, C // self.num_heads).transpose(1, 2)     # (B, nh, T, hs)
         # v = self.value(x).view(B, T, self.num_heads, C // self.num_heads).transpose(1, 2)   # (B, nh, T, hs)
