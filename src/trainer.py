@@ -27,13 +27,16 @@ from utils import configure_optimizer, EpisodeDirManager, set_seed
 
 class Trainer:
     def __init__(self, cfg: DictConfig) -> None:
+        metacentrum_job_id = os.environ.get("PBS_JOBID", "local")
+        wandb.config["metacentrum_job_id"] = metacentrum_job_id
+        run_id = None if metacentrum_job_id == "local" else metacentrum_job_id.split(".")[0]
         wandb.init(
             config=OmegaConf.to_container(cfg, resolve=True),
             reinit=True,
             resume=True,
+            id=run_id,
             **cfg.wandb
         )
-        wandb.config["metacentrum_job_id"] = os.environ.get("PBS_JOBID", "local")
 
         if cfg.common.seed is not None:
             set_seed(cfg.common.seed)
