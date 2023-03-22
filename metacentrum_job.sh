@@ -4,7 +4,7 @@
 #PBS -q gpu_long
 #PBS -l select=1:ncpus=4:mem=40gb:scratch_local=100gb:ngpus=1:gpu_mem=38gb
 #PBS -l walltime=216:00:00
-#PBS -m ae  # Email notification when job aborts (a) or ends (e)
+#PBS -m ae
 
 HOME_DIR=/storage/plzen1/home/patrikvacal
 
@@ -35,12 +35,15 @@ export WANDB_CACHE_DIR=$SCRATCHDIR/cache_wandb
 export TORCH_HOME=$SCRATCHDIR/cache_pytorch
 export TORCH_HUB=$SCRATCHDIR/cache_pytorch
 
+### Copy results back from scratch even if script fails ###
+on_exit() {
+  cd $SCRATCHDIR
+  tar czvf job-$PBS_JOBID.tgz iris_default
+  cp job-$JOB_ID.tgz $HOME_DIR/job_results  || export CLEAN_SCRATCH=false
+}
+trap on_exit TERM EXIT
+
 ### RUN ###
 cp -r $HOME_DIR/jobs/iris_default $SCRATCHDIR
 cd $SCRATCHDIR/iris_default
 python src/main.py env.train.id=BreakoutNoFrameskip-v4 common.device=cuda:0 wandb.mode=online
-
-### Copy results (and some garbage) back ###
-cd $SCRATCHDIR/iris_default
-tar czvf job-$PBS_JOBID.tgz .
-cp job-$JOB_ID.tgz $HOME_DIR/job_results  || export CLEAN_SCRATCH=false

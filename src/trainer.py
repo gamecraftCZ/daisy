@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 from functools import partial
 from pathlib import Path
@@ -32,6 +33,7 @@ class Trainer:
             resume=True,
             **cfg.wandb
         )
+        wandb.config["metacentrum_job_id"] = os.environ.get("PBS_JOBID", "local")
 
         if cfg.common.seed is not None:
             set_seed(cfg.common.seed)
