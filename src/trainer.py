@@ -6,6 +6,7 @@ import shutil
 import sys
 import time
 from typing import Any, Dict, Optional, Tuple
+from uuid import uuid4
 
 import hydra
 from hydra.utils import instantiate
@@ -27,9 +28,8 @@ from utils import configure_optimizer, EpisodeDirManager, set_seed
 
 class Trainer:
     def __init__(self, cfg: DictConfig) -> None:
-        metacentrum_job_id = os.environ.get("PBS_JOBID", "local")
-        wandb.config["metacentrum_job_id"] = metacentrum_job_id
-        run_id = None if metacentrum_job_id == "local" else metacentrum_job_id.split(".")[0]
+        job_id = os.environ.get("PBS_JOBID", "local")
+        run_id = None if job_id == f"local-{uuid4()}" else job_id.split(".")[0]
         wandb.init(
             config=OmegaConf.to_container(cfg, resolve=True),
             reinit=True,
@@ -37,6 +37,7 @@ class Trainer:
             id=run_id,
             **cfg.wandb
         )
+        wandb.config["job_id"] = job_id
 
         if cfg.common.seed is not None:
             set_seed(cfg.common.seed)

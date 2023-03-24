@@ -181,10 +181,10 @@ class SelfAttention(nn.Module):
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
         att = att.masked_fill(self.mask[L:L + T, :L + T] == 0, float('-inf'))
         att = F.softmax(att, dim=-1)
-        att = self.attn_drop(att)
+        att = self.attn_dropout(att)
         y = att @ v
         y = rearrange(y, 'b h t e -> b t (h e)')
 
-        y = self.resid_drop(self.proj(y))
+        y = self.resid_dropout(self.c_proj(y))
 
         return y
