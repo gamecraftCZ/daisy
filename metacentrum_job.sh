@@ -39,11 +39,11 @@ export TORCH_HUB=$SCRATCHDIR/cache_pytorch
 on_exit() {
   cd $SCRATCHDIR
   tar czvf job-$PBS_JOBID.tgz iris_default
-  cp job-$JOB_ID.tgz $HOME_DIR/job_results  || export CLEAN_SCRATCH=false
+  cp job-$PBS_JOBID.tgz $HOME_DIR/job_results  || export CLEAN_SCRATCH=false
 }
 trap on_exit TERM EXIT
 
 ### RUN ###
 cp -r $HOME_DIR/jobs/iris_default $SCRATCHDIR
 cd $SCRATCHDIR/iris_default
-python src/main.py env.train.id=BreakoutNoFrameskip-v4 common.device=cuda:0 wandb.mode=online
+python src/main.py env.train.id=BreakoutNoFrameskip-v4 common.device=cuda:0 wandb.mode=online $ADD_ARGS
