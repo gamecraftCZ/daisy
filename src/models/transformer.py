@@ -9,7 +9,7 @@ from typing import Optional
 from einops import rearrange
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
+import torch.nn.functional as F
 
 from .kv_caching import KeysValues, KVCache
 
@@ -31,6 +31,9 @@ class TransformerConfig:
     pretrained_weights: Optional[str] = None
     frozen: Optional[bool] = False
 
+    pre_transformer_layer: Optional[bool] = False
+    post_transformer_layer: Optional[bool] = False
+
     @property
     def max_tokens(self):
         return self.tokens_per_block * self.max_blocks
@@ -41,8 +44,15 @@ class Transformer(nn.Module):
         super().__init__()
         self.config = config
         self.drop = nn.Dropout(config.embed_pdrop)
+
+        if config.pre_transformer_layer:
+            self.ln_pre_transformer = nn.Linear(config.embed_dim, config.embed_dim)
+
         self.blocks = nn.ModuleList([Block(config) for _ in range(config.num_layers)])
         self.ln_f = nn.LayerNorm(config.embed_dim)
+
+        if config.post_transformer_layer:
+            self.ln_post_transformer = nn.Linear(config.embed_dim, config.embed_dim)
 
         if config.pretrained_weights:
             self.load_pretrained(config.pretrained_weights)
@@ -80,7 +90,7 @@ class Transformer(nn.Module):
         transposed = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight', 'mlp.c_proj.weight']
         # basically the openai checkpoints use a "Conv1D" module, but we only want to use a vanilla nn.Linear.
         # this means that we have to transpose these weights when we import them
-        assert len(keys) == len(sd) + 3  # 3 fewer keys for head and embeddings
+        # assert len(keys) == len(sd) + 3  # 3 fewer keys for head and embeddings
         for k in keys:
             k_original = k.replace("transformer.h.", "blocks.")  # Convert to original GPT2 pretrained names
             k_original = k_original.replace("transformer.", "")
@@ -106,10 +116,13 @@ class Transformer(nn.Module):
         # Dropout -> Attention blocks -> LayerNorm
         assert past_keys_values is None or len(past_keys_values) == len(self.blocks)
         x = self.drop(sequences)
+        x = F.relu(self.ln_pre_transformer(x)) if self.config.pre_transformer_layer else x
+
         for i, block in enumerate(self.blocks):
             x = block(x, None if past_keys_values is None else past_keys_values[i])
 
         x = self.ln_f(x)
+        x = F.relu(self.ln_post_transformer(x)) if self.config.post_transformer_layer else x
         return x
 
 
