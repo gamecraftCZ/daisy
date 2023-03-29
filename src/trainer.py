@@ -29,7 +29,7 @@ from utils import configure_optimizer, EpisodeDirManager, set_seed
 class Trainer:
     def __init__(self, cfg: DictConfig) -> None:
         job_id = os.environ.get("PBS_JOBID", "local")
-        run_id = None if job_id == f"local-{uuid4()}" else job_id.split(".")[0]
+        run_id = None if job_id == "local" else job_id.split(".")[0]
         wandb.init(
             config=OmegaConf.to_container(cfg, resolve=True),
             reinit=True,

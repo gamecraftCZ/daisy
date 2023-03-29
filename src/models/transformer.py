@@ -1,7 +1,7 @@
 """
 Credits to https://github.com/karpathy/minGPT
 """
-
+import sys
 from dataclasses import dataclass
 import math
 from typing import Optional
@@ -85,7 +85,7 @@ class Transformer(nn.Module):
             k_original = k.replace("transformer.h.", "blocks.")  # Convert to original GPT2 pretrained names
             k_original = k_original.replace("transformer.", "")
             if k_original not in sd:
-                print(f"Skipping {k_original} because it's not in the model. Dont worry, if you haven't change anything, this is expected.")
+                print(f"Skipping {k_original} because it's not in the model. Dont worry, if you haven't change anything, this is expected.", file=sys.stderr)
                 continue
             if any(k.endswith(w) for w in transposed):
                 # special treatment for the Conv1D weights we need to transpose

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Submit with: `qsub -v WANDB_API_KEY=<API_KEY>,ADD_ARGS='world_model=gpt2_pretrained_frozen ...' metacentrum_job.sh`
 ### Define machine requirements ###
 #PBS -N daisy-iris
 #PBS -q gpu_long
