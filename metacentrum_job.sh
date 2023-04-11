@@ -4,7 +4,7 @@
 #PBS -N daisy-iris
 #PBS -q gpu_long
 #PBS -l select=1:ncpus=4:mem=40gb:scratch_local=100gb:ngpus=1:gpu_mem=38gb
-#PBS -l walltime=216:00:00
+#PBS -l walltime=336:00:00
 #PBS -m ae
 
 HOME_DIR=/storage/plzen1/home/patrikvacal
