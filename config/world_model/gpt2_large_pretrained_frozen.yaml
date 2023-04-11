@@ -1,0 +1,12 @@
+_target_: models.TransformerConfig
+tokens_per_block: 17
+max_blocks: 20
+attention: 'causal'
+num_layers: 36
+num_heads: 20
+embed_dim: 1280
+embed_pdrop: 0.1
+resid_pdrop: 0.1
+attn_pdrop: 0.1
+pretrained_weights: "gpt2-large"
+frozen: true
