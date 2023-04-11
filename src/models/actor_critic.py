@@ -13,7 +13,7 @@ from tqdm import tqdm
 from dataset import Batch
 from envs.world_model_env import WorldModelEnv
 from models.tokenizer import Tokenizer
-from models.world_model import WorldModel
+from models.world_model_transformer import WorldModelTransformer
 from utils import compute_lambda_returns, LossWithIntermediateLosses
 
 
@@ -97,7 +97,7 @@ class ActorCritic(nn.Module):
 
         return ActorCriticOutput(logits_actions, means_values)
 
-    def compute_loss(self, batch: Batch, tokenizer: Tokenizer, world_model: WorldModel, imagine_horizon: int, gamma: float, lambda_: float, entropy_weight: float, **kwargs: Any) -> LossWithIntermediateLosses:
+    def compute_loss(self, batch: Batch, tokenizer: Tokenizer, world_model: WorldModelTransformer, imagine_horizon: int, gamma: float, lambda_: float, entropy_weight: float, **kwargs: Any) -> LossWithIntermediateLosses:
         assert not self.use_original_obs
         outputs = self.imagine(batch, tokenizer, world_model, horizon=imagine_horizon)
 
@@ -120,7 +120,7 @@ class ActorCritic(nn.Module):
 
         return LossWithIntermediateLosses(loss_actions=loss_actions, loss_values=loss_values, loss_entropy=loss_entropy)
 
-    def imagine(self, batch: Batch, tokenizer: Tokenizer, world_model: WorldModel, horizon: int, show_pbar: bool = False) -> ImagineOutput:
+    def imagine(self, batch: Batch, tokenizer: Tokenizer, world_model: WorldModelTransformer, horizon: int, show_pbar: bool = False) -> ImagineOutput:
         assert not self.use_original_obs
         initial_observations = batch['observations']
         mask_padding = batch['mask_padding']

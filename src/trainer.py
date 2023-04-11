@@ -22,7 +22,7 @@ from envs import SingleProcessEnv, MultiProcessEnv
 from episode import Episode
 from make_reconstructions import make_reconstructions_from_batch
 from models.actor_critic import ActorCritic
-from models.world_model import WorldModel
+from models.world_model_transformer import WorldModelTransformer
 from utils import configure_optimizer, EpisodeDirManager, set_seed
 
 
@@ -86,7 +86,17 @@ class Trainer:
         env = train_env if self.cfg.training.should else test_env
 
         tokenizer = instantiate(cfg.tokenizer)
-        world_model = WorldModel(obs_vocab_size=tokenizer.vocab_size, act_vocab_size=env.num_actions, config=instantiate(cfg.world_model))
+
+        if cfg.world_model.type == 'transformer':  # Transformer based world model
+            world_model = WorldModelTransformer(obs_vocab_size=tokenizer.vocab_size, act_vocab_size=env.num_actions, config=instantiate(cfg.world_model.transformer))
+
+        elif cfg.world_model.type == 'dummy':  # Real environment is used instead of world model
+            raise NotImplementedError("Dummy world model is not implemented yet")
+            # TODO
+
+        else:
+            raise NotImplementedError("Unknown world model type: {}".format(cfg.world_model.type))
+
         actor_critic = ActorCritic(**cfg.actor_critic, act_vocab_size=env.num_actions)
         self.agent = Agent(tokenizer, world_model, actor_critic).to(self.device)
         print(f'{sum(p.numel() for p in self.agent.tokenizer.parameters())} parameters in agent.tokenizer')

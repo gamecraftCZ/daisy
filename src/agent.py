@@ -6,12 +6,12 @@ import torch.nn as nn
 
 from models.actor_critic import ActorCritic
 from models.tokenizer import Tokenizer
-from models.world_model import WorldModel
+from models.world_model_transformer import WorldModelTransformer
 from utils import extract_state_dict
 
 
 class Agent(nn.Module):
-    def __init__(self, tokenizer: Tokenizer, world_model: WorldModel, actor_critic: ActorCritic):
+    def __init__(self, tokenizer: Tokenizer, world_model: WorldModelTransformer, actor_critic: ActorCritic):
         super().__init__()
         self.tokenizer = tokenizer
         self.world_model = world_model

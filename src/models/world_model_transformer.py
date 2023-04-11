@@ -22,7 +22,7 @@ class WorldModelOutput:
     logits_ends: torch.FloatTensor
 
 
-class WorldModel(nn.Module):
+class WorldModelTransformer(nn.Module):
     def __init__(self, obs_vocab_size: int, act_vocab_size: int, config: TransformerConfig) -> None:
         super().__init__()
         self.obs_vocab_size, self.act_vocab_size = obs_vocab_size, act_vocab_size
