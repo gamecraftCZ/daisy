@@ -23,6 +23,8 @@ module add conda-modules  # Newest conda version
 # pip install -r requirements.txt
 conda activate $HOME_DIR/envs/conda/iris
 
+export WANDB__SERVICE_WAIT=300
+
 ### Define cpu LIMITS for the script! ###
 export OMP_NUM_THREADS=$PBS_NUM_PPN
 export OPENBLAS_NUM_THREADS=$PBS_NUM_PPN
