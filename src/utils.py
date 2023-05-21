@@ -11,7 +11,7 @@ import torch.nn as nn
 from episode import Episode
 
 
-def configure_optimizer(model, learning_rate, weight_decay, *blacklist_module_names):
+def configure_optimizer_wm_transformer(model, learning_rate, weight_decay, *blacklist_module_names):
     """Credits to https://github.com/karpathy/minGPT"""
     # separate out all parameters to those that will and won't experience regularizing weight decay
     decay = set()
@@ -49,7 +49,7 @@ def configure_optimizer(model, learning_rate, weight_decay, *blacklist_module_na
     return optimizer
 
 
-def init_weights(module):
+def init_weights_wm_transformer(module):
     if isinstance(module, (nn.Linear, nn.Embedding)):
         module.weight.data.normal_(mean=0.0, std=0.02)
         if isinstance(module, nn.Linear) and module.bias is not None:

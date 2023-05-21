@@ -9,6 +9,9 @@ import torch
 from torch.distributions.categorical import Categorical
 import torchvision
 
+from models.world_model_dummy import WorldModelDummy
+from models.world_model_transformer import WorldModelTransformer
+
 
 class WorldModelEnv:
 
@@ -48,39 +51,62 @@ class WorldModelEnv:
     def refresh_keys_values_with_initial_obs_tokens(self, obs_tokens: torch.LongTensor) -> torch.FloatTensor:
         n, num_observations_tokens = obs_tokens.shape
         assert num_observations_tokens == self.num_observations_tokens
-        self.keys_values_wm = self.world_model.transformer.generate_empty_keys_values(n=n, max_tokens=self.world_model.config.max_tokens)
-        outputs_wm = self.world_model(obs_tokens, past_keys_values=self.keys_values_wm)
-        return outputs_wm.output_sequence  # (B, K, E)
+        if isinstance(self.world_model, WorldModelTransformer):
+            self.keys_values_wm = self.world_model.transformer.generate_empty_keys_values(n=n, max_tokens=self.world_model.config.max_tokens)
+            outputs_wm = self.world_model(obs_tokens, past_keys_values=self.keys_values_wm)
+            return outputs_wm.output_sequence  # (B, K, E)
+
+        elif isinstance(self.world_model, WorldModelDummy):
+            self.keys_values_wm = None
+            return self.world_model.reset()
+
+        else:
+            raise NotImplementedError(f"World model of type {type(self.world_model)} is not supported by world_model_env.")
 
     @torch.no_grad()
     def step(self, action: Union[int, np.ndarray, torch.LongTensor], should_predict_next_obs: bool = True) -> None:
-        assert self.keys_values_wm is not None and self.num_observations_tokens is not None
+        if getattr(self.world_model, "transformer", None):
+            assert self.keys_values_wm is not None
+        assert self.num_observations_tokens is not None
 
         num_passes = 1 + self.num_observations_tokens if should_predict_next_obs else 1
 
         output_sequence, obs_tokens = [], []
 
-        if self.keys_values_wm.size + num_passes > self.world_model.config.max_tokens:
-            _ = self.refresh_keys_values_with_initial_obs_tokens(self.obs_tokens)
+        if isinstance(self.world_model, WorldModelTransformer):
+            if self.keys_values_wm.size + num_passes > self.world_model.config.max_tokens:
+                _ = self.refresh_keys_values_with_initial_obs_tokens(self.obs_tokens)
 
         token = action.clone().detach() if isinstance(action, torch.Tensor) else torch.tensor(action, dtype=torch.long)
         token = token.reshape(-1, 1).to(self.device)  # (B, 1)
 
         for k in range(num_passes):  # assumption that there is only one action token.
-
             outputs_wm = self.world_model(token, past_keys_values=self.keys_values_wm)
             output_sequence.append(outputs_wm.output_sequence)
 
-            if k == 0:
-                reward = Categorical(logits=outputs_wm.logits_rewards).sample().float().cpu().numpy().reshape(-1) - 1   # (B,)
-                done = Categorical(logits=outputs_wm.logits_ends).sample().cpu().numpy().astype(bool).reshape(-1)       # (B,)
+            if isinstance(self.world_model, WorldModelTransformer):
+                if k == 0:
+                    reward = Categorical(logits=outputs_wm.logits_rewards).sample().float().cpu().numpy().reshape(-1) - 1   # (B,)
+                    done = Categorical(logits=outputs_wm.logits_ends).sample().cpu().numpy().astype(bool).reshape(-1)       # (B,)
 
-            if k < self.num_observations_tokens:
-                token = Categorical(logits=outputs_wm.logits_observations).sample()
-                obs_tokens.append(token)
+                if k < self.num_observations_tokens:
+                    token = Categorical(logits=outputs_wm.logits_observations).sample()
+                    obs_tokens.append(token)
+
+            elif isinstance(self.world_model, WorldModelDummy):
+                reward = outputs_wm.logits_rewards.cpu().numpy()  # not logits even though it is called logits_rewards
+                done = outputs_wm.logits_ends.cpu().numpy().astype(bool)  # not logits even though it is called logits_ends
+                obs_tokens = outputs_wm.logits_observations  # not logits even though it is called logits_ends
+                break
+
+            else:
+                raise NotImplementedError(f"World model of type {type(self.world_model)} is not supported by world_model_env.")
 
         output_sequence = torch.cat(output_sequence, dim=1)   # (B, 1 + K, E)
-        self.obs_tokens = torch.cat(obs_tokens, dim=1)        # (B, K)
+        if isinstance(self.world_model, WorldModelTransformer):
+            self.obs_tokens = torch.cat(obs_tokens, dim=1)        # (B, K)
+        if isinstance(self.world_model, WorldModelDummy):
+            self.obs_tokens = obs_tokens
 
         obs = self.decode_obs_tokens() if should_predict_next_obs else None
         return obs, reward, done, None

@@ -23,7 +23,8 @@ from episode import Episode
 from make_reconstructions import make_reconstructions_from_batch
 from models.actor_critic import ActorCritic
 from models.world_model_transformer import WorldModelTransformer
-from utils import configure_optimizer, EpisodeDirManager, set_seed
+from models.world_model_dummy import WorldModelDummy
+from utils import configure_optimizer_wm_transformer, EpisodeDirManager, set_seed
 
 
 class Trainer:
@@ -89,10 +90,11 @@ class Trainer:
 
         if cfg.world_model.type == 'transformer':  # Transformer based world model
             world_model = WorldModelTransformer(obs_vocab_size=tokenizer.vocab_size, act_vocab_size=env.num_actions, config=instantiate(cfg.world_model.transformer))
+            self.should_train_world_model = True
 
         elif cfg.world_model.type == 'dummy':  # Real environment is used instead of world model
-            raise NotImplementedError("Dummy world model is not implemented yet")
-            # TODO
+            world_model = WorldModelDummy(tokenizer=tokenizer, obs_vocab_size=tokenizer.vocab_size, act_vocab_size=env.num_actions, config=cfg.world_model.dummy_config, env_count=cfg.training.world_model.batch_num_samples, device=self.device)
+            self.should_train_world_model = False
 
         else:
             raise NotImplementedError("Unknown world model type: {}".format(cfg.world_model.type))
@@ -100,11 +102,13 @@ class Trainer:
         actor_critic = ActorCritic(**cfg.actor_critic, act_vocab_size=env.num_actions)
         self.agent = Agent(tokenizer, world_model, actor_critic).to(self.device)
         print(f'{sum(p.numel() for p in self.agent.tokenizer.parameters())} parameters in agent.tokenizer')
-        print(f'{sum(p.numel() for p in self.agent.world_model.parameters())} parameters in agent.world_model')
+        if self.should_train_world_model:
+            print(f'{sum(p.numel() for p in self.agent.world_model.parameters())} parameters in agent.world_model')
         print(f'{sum(p.numel() for p in self.agent.actor_critic.parameters())} parameters in agent.actor_critic')
 
         self.optimizer_tokenizer = torch.optim.Adam(self.agent.tokenizer.parameters(), lr=cfg.training.learning_rate)
-        self.optimizer_world_model = configure_optimizer(self.agent.world_model, cfg.training.learning_rate, cfg.training.world_model.weight_decay)
+        if self.should_train_world_model:
+            self.optimizer_world_model = configure_optimizer_wm_transformer(self.agent.world_model, cfg.training.learning_rate, cfg.training.world_model.weight_decay)
         self.optimizer_actor_critic = torch.optim.Adam(self.agent.actor_critic.parameters(), lr=cfg.training.learning_rate)
 
         if cfg.initialization.path_to_checkpoint is not None:
@@ -157,8 +161,9 @@ class Trainer:
         self.agent.tokenizer.eval()
 
         if epoch > cfg_world_model.start_after_epochs:
-            metrics_world_model = self.train_component(self.agent.world_model, self.optimizer_world_model, sequence_length=self.cfg.common.sequence_length, sample_from_start=True, sampling_weights=w, tokenizer=self.agent.tokenizer, **cfg_world_model)
-        self.agent.world_model.eval()
+            if self.should_train_world_model:
+                metrics_world_model = self.train_component(self.agent.world_model, self.optimizer_world_model, sequence_length=self.cfg.common.sequence_length, sample_from_start=True, sampling_weights=w, tokenizer=self.agent.tokenizer, **cfg_world_model)
+                self.agent.world_model.eval()
 
         if epoch > cfg_actor_critic.start_after_epochs:
             metrics_actor_critic = self.train_component(self.agent.actor_critic, self.optimizer_actor_critic, sequence_length=1 + self.cfg.training.actor_critic.burn_in, sample_from_start=False, sampling_weights=w, tokenizer=self.agent.tokenizer, world_model=self.agent.world_model, **cfg_actor_critic)
@@ -206,7 +211,10 @@ class Trainer:
             metrics_tokenizer = self.eval_component(self.agent.tokenizer, cfg_tokenizer.batch_num_samples, sequence_length=1)
 
         if epoch > cfg_world_model.start_after_epochs:
-            metrics_world_model = self.eval_component(self.agent.world_model, cfg_world_model.batch_num_samples, sequence_length=self.cfg.common.sequence_length, tokenizer=self.agent.tokenizer)
+            if self.should_train_world_model:
+                metrics_world_model = self.eval_component(self.agent.world_model, cfg_world_model.batch_num_samples, sequence_length=self.cfg.common.sequence_length, tokenizer=self.agent.tokenizer)
+            else:
+                metrics_world_model = {}
 
         if epoch > cfg_actor_critic.start_after_epochs:
             self.inspect_imagination(epoch)
@@ -265,7 +273,7 @@ class Trainer:
             torch.save(epoch, self.ckpt_dir / 'epoch.pt')
             torch.save({
                 "optimizer_tokenizer": self.optimizer_tokenizer.state_dict(),
-                "optimizer_world_model": self.optimizer_world_model.state_dict(),
+                "optimizer_world_model": self.optimizer_world_model.state_dict() if self.should_train_world_model else None,
                 "optimizer_actor_critic": self.optimizer_actor_critic.state_dict(),
             }, self.ckpt_dir / 'optimizer.pt')
             ckpt_dataset_dir = self.ckpt_dir / 'dataset'
@@ -286,7 +294,8 @@ class Trainer:
         self.agent.load(self.ckpt_dir / 'last.pt', device=self.device)
         ckpt_opt = torch.load(self.ckpt_dir / 'optimizer.pt', map_location=self.device)
         self.optimizer_tokenizer.load_state_dict(ckpt_opt['optimizer_tokenizer'])
-        self.optimizer_world_model.load_state_dict(ckpt_opt['optimizer_world_model'])
+        if self.should_train_world_model:
+            self.optimizer_world_model.load_state_dict(ckpt_opt['optimizer_world_model'])
         self.optimizer_actor_critic.load_state_dict(ckpt_opt['optimizer_actor_critic'])
         self.train_dataset.load_disk_checkpoint(self.ckpt_dir / 'dataset')
         if self.cfg.evaluation.should:

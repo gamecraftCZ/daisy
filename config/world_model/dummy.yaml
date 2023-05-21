@@ -1,1 +1,11 @@
 type: "dummy"  # Dummy type means that real environment is used instead of world model
+dummy_config:
+  _target_: models.DummyWorldModelConfig
+  env: ${env.train}
+#    id: ${env.train.id}
+#    size: ${env.train.size}
+#    max_episode_steps: ${env.train.max_episode_steps}
+#    noop_max: ${env.train.noop_max}
+#    frame_skip: ${env.train.frame_skip}
+#    done_on_life_loss: ${env.train.done_on_life_loss}
+#    clip_reward: ${env.train.clip_reward}

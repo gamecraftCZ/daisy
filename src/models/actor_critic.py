@@ -13,6 +13,7 @@ from tqdm import tqdm
 from dataset import Batch
 from envs.world_model_env import WorldModelEnv
 from models.tokenizer import Tokenizer
+from models.world_model_dummy import WorldModelDummy
 from models.world_model_transformer import WorldModelTransformer
 from utils import compute_lambda_returns, LossWithIntermediateLosses
 
@@ -120,14 +121,14 @@ class ActorCritic(nn.Module):
 
         return LossWithIntermediateLosses(loss_actions=loss_actions, loss_values=loss_values, loss_entropy=loss_entropy)
 
-    def imagine(self, batch: Batch, tokenizer: Tokenizer, world_model: WorldModelTransformer, horizon: int, show_pbar: bool = False) -> ImagineOutput:
+    def imagine(self, batch: Batch, tokenizer: Tokenizer, world_model: WorldModelTransformer or WorldModelDummy, horizon: int, show_pbar: bool = False) -> ImagineOutput:
         assert not self.use_original_obs
         initial_observations = batch['observations']
         mask_padding = batch['mask_padding']
         assert initial_observations.ndim == 5 and initial_observations.shape[2:] == (3, 64, 64)
         assert mask_padding[:, -1].all()
         device = initial_observations.device
-        wm_env = WorldModelEnv(tokenizer, world_model, device)
+        wm_env = WorldModelEnv(tokenizer, world_model, device)  # TODO: make this to work with dummy env
 
         all_actions = []
         all_logits_actions = []

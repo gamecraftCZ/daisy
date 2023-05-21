@@ -11,7 +11,7 @@ from .kv_caching import KeysValues
 from .slicer import Embedder, Head
 from .tokenizer import Tokenizer
 from .transformer import Transformer, TransformerConfig
-from utils import init_weights, LossWithIntermediateLosses
+from utils import init_weights_wm_transformer, LossWithIntermediateLosses
 
 
 @dataclass
@@ -73,13 +73,12 @@ class WorldModelTransformer(nn.Module):
             )
         )
 
-        self.apply(init_weights)
+        self.apply(init_weights_wm_transformer)
 
     def __repr__(self) -> str:
-        return "world_model"
+        return "world_model_transformer"
 
     def forward(self, tokens: torch.LongTensor, past_keys_values: Optional[KeysValues] = None) -> WorldModelOutput:
-
         num_steps = tokens.size(1)  # (B, T)
         assert num_steps <= self.config.max_tokens
         prev_steps = 0 if past_keys_values is None else past_keys_values.size
@@ -95,7 +94,6 @@ class WorldModelTransformer(nn.Module):
         return WorldModelOutput(x, logits_observations, logits_rewards, logits_ends)
 
     def compute_loss(self, batch: Batch, tokenizer: Tokenizer, **kwargs: Any) -> LossWithIntermediateLosses:
-
         with torch.no_grad():
             obs_tokens = tokenizer.encode(batch['observations'], should_preprocess=True).tokens  # (BL, K)
 
