@@ -75,7 +75,7 @@ class EpisodesDataset:
             sizes = [num_episodes // num_weights + (num_episodes % num_weights) * (i == num_weights - 1) for i in range(num_weights)]
             weights = [w / s for (w, s) in zip(weights, sizes) for _ in range(s)]
 
-        sampled_episodes = random.choices(self.episodes, k=batch_num_samples, weights=weights)
+        sampled_episodes: List[Episode] = random.choices(self.episodes, k=batch_num_samples, weights=weights)
 
         sampled_episodes_segments = []
         for sampled_episode in sampled_episodes:
@@ -90,6 +90,14 @@ class EpisodesDataset:
         return sampled_episodes_segments
 
     def _collate_episodes_segments(self, episodes_segments: List[Episode]) -> Batch:
+        """ Converts a list of episodes segments into a batch of tensors.
+            IN: [{'observations': tensor(1, 3, 64, 64), 'actions': tensor(1), 'rewards': tensor(1), 'ends': tensor(1), 'mask_padding': tensor(1)}]
+            OUT: {'observations': tensor(<episode_count>, 3, 64, 64),
+                  'actions': tensor(<episode_count>),
+                  'rewards': tensor(<episode_count>),
+                  'ends': tensor(<episode_count>),
+                  'mask_padding': tensor(<episode_count>)}
+        """
         episodes_segments = [e_s.__dict__ for e_s in episodes_segments]
         batch = {}
         for k in episodes_segments[0]:

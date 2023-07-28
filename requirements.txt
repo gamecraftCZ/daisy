@@ -18,3 +18,6 @@ matplotlib
 omegaconf
 yaml
 pyyaml
+ncps
+seaborn
+networkx
