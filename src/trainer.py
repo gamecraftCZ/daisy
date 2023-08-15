@@ -22,7 +22,7 @@ from envs import SingleProcessEnv, MultiProcessEnv
 from episode import Episode
 from make_reconstructions import make_reconstructions_from_batch
 from models.actor_critic import ActorCritic
-from models.world_model_ncp import WorldModelNcp
+from models.world_model_ncp_single_step import WorldModelNcpSingleStep
 from models.world_model_transformer import WorldModelTransformer
 from models.world_model_dummy import WorldModelDummy
 from utils import configure_optimizer_wm_transformer, configure_optimizer_wm_ncp, EpisodeDirManager, set_seed
@@ -97,8 +97,8 @@ class Trainer:
             world_model = WorldModelDummy(tokenizer=tokenizer, obs_vocab_size=tokenizer.vocab_size, act_vocab_size=env.num_actions, config=cfg.world_model.dummy_config, env_count=cfg.training.world_model.batch_num_samples, device=self.device)
             self.should_train_world_model = False
 
-        elif cfg.world_model.type == "ncp":  # NCP based world model
-            world_model = WorldModelNcp(obs_vocab_size=tokenizer.vocab_size, act_vocab_size=env.num_actions, config=instantiate(cfg.world_model.ncp))
+        elif cfg.world_model.type == "ncp_single_step":  # NCP based world model
+            world_model = WorldModelNcpSingleStep(obs_vocab_size=tokenizer.vocab_size, act_vocab_size=env.num_actions, config=instantiate(cfg.world_model.ncp_single_step))
             self.should_train_world_model = True
 
         else:
@@ -114,7 +114,7 @@ class Trainer:
         self.optimizer_tokenizer = torch.optim.Adam(self.agent.tokenizer.parameters(), lr=cfg.training.learning_rate)
         if self.should_train_world_model and cfg.world_model.type == 'transformer':
             self.optimizer_world_model = configure_optimizer_wm_transformer(self.agent.world_model, cfg.training.learning_rate, cfg.training.world_model.weight_decay)
-        elif self.should_train_world_model and cfg.world_model.type == 'ncp':
+        elif self.should_train_world_model and cfg.world_model.type == 'ncp_single_step':
             self.optimizer_world_model = configure_optimizer_wm_ncp(self.agent.world_model, cfg.training.learning_rate, cfg.training.world_model.weight_decay)
         self.optimizer_actor_critic = torch.optim.Adam(self.agent.actor_critic.parameters(), lr=cfg.training.learning_rate)
 

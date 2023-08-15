@@ -1,5 +1,0 @@
-type: "ncp"
-ncp:
-  _target_: models.NcpConfig
-  ncp_units: 1024
-  max_blocks: ${common.sequence_length}  # TODO WTF this means?

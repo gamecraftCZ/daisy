@@ -3,6 +3,7 @@ from typing import List
 
 import torch
 import torch.nn as nn
+from torch.nn import ModuleList
 
 
 class Slicer(nn.Module):
@@ -36,7 +37,7 @@ class Head(Slicer):
 
 
 class Embedder(nn.Module):
-    def __init__(self, max_blocks: int, block_masks: List[torch.Tensor], embedding_tables: List[nn.Embedding]) -> None:
+    def __init__(self, max_blocks: int, block_masks: List[torch.Tensor], embedding_tables: List[nn.Embedding] or ModuleList) -> None:
         super().__init__()
         assert len(block_masks) == len(embedding_tables)
         assert (sum(block_masks) == 1).all()  # block mask are a partition of a block
@@ -46,9 +47,17 @@ class Embedder(nn.Module):
         self.slicers = [Slicer(max_blocks, block_mask) for block_mask in block_masks]
 
     def forward(self, tokens: torch.Tensor, num_steps: int, prev_steps: int) -> torch.Tensor:
-        assert tokens.ndim == 2  # x is (B, T)
-        output = torch.zeros(*tokens.size(), self.embedding_dim, device=tokens.device)
-        for slicer, emb in zip(self.slicers, self.embedding_tables):
-            s = slicer.compute_slice(num_steps, prev_steps)
-            output[:, s] = emb(tokens[:, s])
-        return output
+        if tokens.ndim == 2:
+            output = torch.zeros(*tokens.size(), self.embedding_dim, device=tokens.device)
+            for slicer, emb in zip(self.slicers, self.embedding_tables):
+                s = slicer.compute_slice(num_steps, prev_steps)
+                output[:, s] = emb(tokens[:, s])
+            return output
+        elif tokens.ndim == 3:
+            output = torch.zeros(*tokens.size(), self.embedding_dim, device=tokens.device)
+            for slicer, emb in zip(self.slicers, self.embedding_tables):
+                s = slicer.compute_slice(num_steps, prev_steps)
+                output[:, :, s] = emb(tokens[:, :, s])
+            return output
+        else:
+            raise ValueError(f'Expected tokens to be of dimension 2 or 3, got {tokens.ndim}')

@@ -29,23 +29,26 @@ class WorldModelTransformer(nn.Module):
         self.config = config
         self.transformer = Transformer(config)
 
-        all_but_last_obs_tokens_pattern = torch.ones(config.tokens_per_block)
+        all_but_last_obs_tokens_pattern = torch.ones(config.tokens_per_block)  # eg. [1, 1, 1, 1, 1, 1, 0, 1]
         all_but_last_obs_tokens_pattern[-2] = 0
-        act_tokens_pattern = torch.zeros(self.config.tokens_per_block)
+        act_tokens_pattern = torch.zeros(self.config.tokens_per_block)         # eg. [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
         act_tokens_pattern[-1] = 1
-        obs_tokens_pattern = 1 - act_tokens_pattern
+        obs_tokens_pattern = 1 - act_tokens_pattern                            # eg. [1, 1, 1, 1, 1, 1, 1, 0]
 
         self.pos_emb = nn.Embedding(config.max_tokens, config.embed_dim)
 
         self.embedder = Embedder(
             max_blocks=config.max_blocks,
             block_masks=[act_tokens_pattern, obs_tokens_pattern],
-            embedding_tables=nn.ModuleList([nn.Embedding(act_vocab_size, config.embed_dim), nn.Embedding(obs_vocab_size, config.embed_dim)])
+            embedding_tables=nn.ModuleList([
+                nn.Embedding(act_vocab_size, config.embed_dim),
+                nn.Embedding(obs_vocab_size, config.embed_dim)
+            ])
         )
 
         self.head_observations = Head(
             max_blocks=config.max_blocks,
-            block_mask=all_but_last_obs_tokens_pattern,
+            block_mask=all_but_last_obs_tokens_pattern,  # eg. [1, 1, 1, 1, 1, 1, 0, 1]
             head_module=nn.Sequential(
                 nn.Linear(config.embed_dim, config.embed_dim),
                 nn.ReLU(),
@@ -55,7 +58,7 @@ class WorldModelTransformer(nn.Module):
 
         self.head_rewards = Head(
             max_blocks=config.max_blocks,
-            block_mask=act_tokens_pattern,
+            block_mask=act_tokens_pattern,  # eg. [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
             head_module=nn.Sequential(
                 nn.Linear(config.embed_dim, config.embed_dim),
                 nn.ReLU(),
@@ -65,7 +68,7 @@ class WorldModelTransformer(nn.Module):
 
         self.head_ends = Head(
             max_blocks=config.max_blocks,
-            block_mask=act_tokens_pattern,
+            block_mask=act_tokens_pattern,  # eg. [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
             head_module=nn.Sequential(
                 nn.Linear(config.embed_dim, config.embed_dim),
                 nn.ReLU(),
@@ -111,7 +114,7 @@ class WorldModelTransformer(nn.Module):
 
         return LossWithIntermediateLosses(loss_obs=loss_obs, loss_rewards=loss_rewards, loss_ends=loss_ends)
 
-    def compute_labels_world_model(self, obs_tokens: torch.Tensor, rewards: torch.Tensor, ends: torch.Tensor, mask_padding: torch.BoolTensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def compute_labels_world_model(self, obs_tokens: torch.Tensor, rewards: torch.Tensor, ends: torch.Tensor, mask_padding: torch.BoolTensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         assert torch.all(ends.sum(dim=1) <= 1)  # at most 1 done
         mask_fill = torch.logical_not(mask_padding)
         labels_observations = rearrange(obs_tokens.masked_fill(mask_fill.unsqueeze(-1).expand_as(obs_tokens), -100), 'b t k -> b (t k)')[:, 1:]
