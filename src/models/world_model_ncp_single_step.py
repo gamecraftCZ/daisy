@@ -96,7 +96,8 @@ class WorldModelNcpSingleStep(nn.Module):
     def __repr__(self) -> str:
         return "world_model_ncp_single_step"
 
-    def forward(self, tokens: torch.LongTensor, hidden_state: Optional[Tuple] = None) -> WorldModelOutput:
+    def forward(self, tokens: torch.IntTensor, hidden_state: Optional[Tuple] = None) -> WorldModelOutput:
+        tokens = tokens.to(torch.int64)
         num_steps = tokens.size(2)  # (B, T)
         prev_steps = 0
 

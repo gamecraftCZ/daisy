@@ -2,7 +2,7 @@ type: "ncp_single_step"
 ncp_single_step:
   _target_: models.NcpConfigSingleStep
   ncp_units: 8704  # 256 * 17 * 2
-  embed_dim: 256  # Must be less than ncp_units * 17
+  embed_dim: 256  # Must be less than ncp_units * 17 - 2
   embed_pdrop: 0.1
   blocks_pdrop: 0.1
   num_layers: 1
