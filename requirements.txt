@@ -8,6 +8,7 @@ psutil
 pygame
 tqdm
 wandb
+
 transformers
 numpy
 pillow
@@ -16,7 +17,6 @@ dataclasses
 requests
 matplotlib
 omegaconf
-yaml
 pyyaml
 ncps
 seaborn

@@ -10,6 +10,7 @@ from torch.distributions.categorical import Categorical
 import torchvision
 
 from models.world_model_dummy import WorldModelDummy
+from models.world_model_ncp_multiple_step import WorldModelNcpMultipleStep
 from models.world_model_ncp_single_step import WorldModelNcpSingleStep
 from models.world_model_transformer import WorldModelTransformer
 
@@ -50,6 +51,8 @@ class WorldModelEnv:
 
     @torch.no_grad()
     def refresh_keys_values_with_initial_obs_tokens(self, obs_tokens: torch.LongTensor) -> torch.FloatTensor:
+        # Initialize keys_values_wm_hidden_state with empty hidden state for the self.world_model
+
         n, num_observations_tokens = obs_tokens.shape
         assert num_observations_tokens == self.num_observations_tokens
         if isinstance(self.world_model, WorldModelTransformer):
@@ -58,7 +61,16 @@ class WorldModelEnv:
             return outputs_wm.output_sequence  # (B, K, E)
 
         elif isinstance(self.world_model, WorldModelNcpSingleStep):
-            tokens = torch.cat((obs_tokens.unsqueeze(1), torch.zeros(obs_tokens.size(0), 1, 1).to(self.device)), dim=2)  # (B, L, K)
+            tokens = torch.cat((obs_tokens.unsqueeze(1), torch.zeros(obs_tokens.size(0), 1, 1, device=self.device)), dim=2)  # (B, L, K)
+            outputs_wm = self.world_model(tokens)
+            self.keys_values_wm_hidden_state = outputs_wm.hidden_state  # default hidden state is None
+            return outputs_wm.output_sequence  # (B, K, E)
+
+        # TODO elif isinstance(self.world_model, WorldModelNcpMultipleStep):
+        elif isinstance(self.world_model, WorldModelNcpMultipleStep):
+            # TODO change tokens size to work with WorldModelNcpMultipleStep
+            tokens = torch.zeros(n, 1, device=self.device)
+            # tokens = torch.cat((obs_tokens.unsqueeze(1), torch.zeros(obs_tokens.size(0), 1, 1).to(self.device)), dim=2)  # (B, L, K)
             outputs_wm = self.world_model(tokens)
             self.keys_values_wm_hidden_state = outputs_wm.hidden_state  # default hidden state is None
             return outputs_wm.output_sequence  # (B, K, E)
@@ -99,8 +111,6 @@ class WorldModelEnv:
                     obs_tokens.append(action_token)
 
         elif isinstance(self.world_model, WorldModelNcpSingleStep):
-            # TODO make NCP work like Transformers implementation
-            #  where predictions of next tokens of single frame is dependent on previous tokens sampling.
             tokens = torch.unsqueeze(torch.cat((self.obs_tokens, action_token), dim=1), dim=1)  # (B, L, K)
             outputs_wm = self.world_model(tokens, self.keys_values_wm_hidden_state)
             self.keys_values_wm_hidden_state = outputs_wm.hidden_state
@@ -110,6 +120,21 @@ class WorldModelEnv:
 
             obs_logits = outputs_wm.logits_observations.reshape(outputs_wm.logits_observations.size(0), -1, self.world_model.obs_vocab_size)
             obs_tokens = Categorical(logits=obs_logits).sample()
+
+        # TODO make NCP work like Transformers implementation
+        #  where predictions of next tokens of single frame is dependent on previous tokens sampling.
+        elif isinstance(self.world_model, WorldModelNcpMultipleStep):
+            for k in range(num_passes):  # assumption that there is only one action token.
+                outputs_wm = self.world_model(action_token, hidden_state=self.keys_values_wm_hidden_state, step_idx=k+16)
+                self.keys_values_wm_hidden_state = outputs_wm.hidden_state
+                if k == 0:
+                    reward = Categorical(logits=outputs_wm.logits_rewards).sample().float().cpu().numpy().reshape(-1) - 1   # (B,)
+                    done = Categorical(logits=outputs_wm.logits_ends).sample().cpu().numpy().astype(bool).reshape(-1)       # (B,)
+
+                if k < self.num_observations_tokens:
+                    action_token = Categorical(logits=outputs_wm.logits_observations).sample()
+                    obs_tokens.append(action_token)
+
 
         elif isinstance(self.world_model, WorldModelDummy):
             outputs_wm = self.world_model(action_token)
@@ -123,8 +148,15 @@ class WorldModelEnv:
         # output_sequence = torch.cat(output_sequence, dim=1)  # (B, 1 + K, E)
         if isinstance(self.world_model, WorldModelTransformer):
             self.obs_tokens = torch.cat(obs_tokens, dim=1)   # (B, K)
+
         if isinstance(self.world_model, WorldModelNcpSingleStep):
             self.obs_tokens = obs_tokens
+
+        # DONE elif isinstance(self.world_model, WorldModelNcpMultipleStep):
+        if isinstance(self.world_model, WorldModelNcpMultipleStep):
+            # Concat multiple model steps into one frame observation (B, K)
+            self.obs_tokens = torch.cat(obs_tokens, dim=1)
+
         if isinstance(self.world_model, WorldModelDummy):
             self.obs_tokens = obs_tokens
 

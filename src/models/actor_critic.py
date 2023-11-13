@@ -14,6 +14,7 @@ from dataset import Batch
 from envs.world_model_env import WorldModelEnv
 from models.tokenizer import Tokenizer
 from models.world_model_dummy import WorldModelDummy
+from models.world_model_ncp_multiple_step import WorldModelNcpMultipleStep
 from models.world_model_ncp_single_step import WorldModelNcpSingleStep
 from models.world_model_transformer import WorldModelTransformer
 from utils import compute_lambda_returns, LossWithIntermediateLosses
@@ -124,7 +125,7 @@ class ActorCritic(nn.Module):
 
         return LossWithIntermediateLosses(loss_actions=loss_actions, loss_values=loss_values, loss_entropy=loss_entropy)
 
-    def imagine(self, batch: Batch, tokenizer: Tokenizer, world_model: WorldModelTransformer or WorldModelNcpSingleStep or WorldModelDummy, horizon: int, show_pbar: bool = False) -> ImagineOutput:
+    def imagine(self, batch: Batch, tokenizer: Tokenizer, world_model: WorldModelTransformer or WorldModelNcpSingleStep or WorldModelNcpMultipleStep or WorldModelDummy, horizon: int, show_pbar: bool = False) -> ImagineOutput:
         assert not self.use_original_obs
         initial_observations = batch['observations']
         mask_padding = batch['mask_padding']

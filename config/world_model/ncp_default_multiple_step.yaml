@@ -1,0 +1,12 @@
+type: "ncp_multiple_step"
+ncp_multiple_step:
+  _target_: models.NcpConfigMultipleStep
+  ncp_units: 512  # 256 * 2
+  embed_dim: 256  # Must be less than ncp_units - 2
+  embed_pdrop: 0.1
+  blocks_pdrop: 0.1
+  num_layers: 1
+  ncp_layer_norm: True
+  pos_emb: True
+  max_blocks: ${common.sequence_length}  # TODO WTF this means?
+  tokens_per_block: 17                   # So the Embedder knows. 16 obs + 1 action
