@@ -21,7 +21,12 @@ fi
 module add conda-modules  # Newest conda version
 # conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch
 # pip install -r requirements.txt
-conda activate $HOME_DIR/envs/conda/iris
+
+# Copy the environment to the scratch directory,
+#  otherwise "Stale file handle" error may occur when more jobs starts at the same time.
+mkdir -p $SCRATCHDIR/envs/conda
+cp -r $HOME_DIR/envs/conda/iris $SCRATCHDIR/envs/conda
+conda activate $SCRATCHDIR/envs/conda/iris
 
 export WANDB__SERVICE_WAIT=300
 
@@ -49,4 +54,5 @@ trap on_exit TERM EXIT
 ### RUN ###
 cp -r $HOME_DIR/jobs/iris_default $SCRATCHDIR
 cd $SCRATCHDIR/iris_default
+echo "Running main.py with ADD_ARGS: $ADD_ARGS"
 python src/main.py env.train.id=BreakoutNoFrameskip-v4 common.device=cuda:0 wandb.mode=online $ADD_ARGS
