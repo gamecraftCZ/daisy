@@ -119,12 +119,12 @@ class Trainer:
 
         self.optimizer_tokenizer = torch.optim.Adam(self.agent.tokenizer.parameters(), lr=cfg.training.learning_rate)
         if self.should_train_world_model and cfg.world_model.type == 'transformer':
-            self.optimizer_world_model = configure_optimizer_wm_transformer(self.agent.world_model, cfg.training.learning_rate, cfg.training.world_model.weight_decay)
+            self.optimizer_world_model = configure_optimizer_wm_transformer(self.agent.world_model, cfg.training.world_model.learning_rate, cfg.training.world_model.weight_decay)
         elif self.should_train_world_model and cfg.world_model.type == 'ncp_single_step':
-            self.optimizer_world_model = configure_optimizer_wm_ncp_single(self.agent.world_model, cfg.training.learning_rate, cfg.training.world_model.weight_decay)
+            self.optimizer_world_model = configure_optimizer_wm_ncp_single(self.agent.world_model, cfg.training.world_model.learning_rate, cfg.training.world_model.weight_decay)
         elif self.should_train_world_model and cfg.world_model.type == 'ncp_multiple_step':
-            self.optimizer_world_model = configure_optimizer_wm_ncp_multiple(self.agent.world_model, cfg.training.learning_rate, cfg.training.world_model.weight_decay)
-        self.optimizer_actor_critic = torch.optim.Adam(self.agent.actor_critic.parameters(), lr=cfg.training.learning_rate)
+            self.optimizer_world_model = configure_optimizer_wm_ncp_multiple(self.agent.world_model, cfg.training.world_model.learning_rate, cfg.training.world_model.weight_decay)
+        self.optimizer_actor_critic = torch.optim.Adam(self.agent.actor_critic.parameters(), lr=cfg.training.world_model.learning_rate)
 
         if cfg.initialization.path_to_checkpoint is not None:
             self.agent.load(**cfg.initialization, device=self.device)

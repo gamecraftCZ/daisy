@@ -25,7 +25,7 @@ common:
   epochs: 600
   device: cuda:0
   do_checkpoint: True
-  seed: 0
+  seed: 42
   sequence_length: 20
   resume: False # set by resume.sh script only.
 
@@ -67,6 +67,7 @@ training:
     weight_decay: 0.01
     start_after_epochs: 25
     steps_per_epoch: 200
+    learning_rate: 0.0001
   actor_critic:
     batch_num_samples: 64
     grad_acc_steps: 1
