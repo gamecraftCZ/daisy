@@ -9,6 +9,8 @@ from typing import Any, Dict, Optional, Tuple
 from uuid import uuid4
 
 import hydra
+import numpy as np
+from gym.wrappers import TransformObservation
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 import torch
@@ -73,7 +75,18 @@ class Trainer:
         self.episode_manager_imagination = EpisodeDirManager(self.episode_dir / 'imagination', max_num_episodes=cfg.evaluation.actor_critic.num_episodes_to_save)
 
         def create_env(cfg_env, num_envs):
-            env_fn = partial(instantiate, config=cfg_env)
+            def env_fn(*args, **kwargs):
+                cfg = {**cfg_env}
+                del cfg["noise_std"]
+                env = partial(instantiate, config=cfg)(*args, **kwargs)
+                env = TransformObservation(env, lambda obs: np.clip(
+                    (obs + np.random.randn(*obs.shape) * 255. * cfg_env.noise_std)
+                    , 0, 255.)
+                                           ) if cfg_env.noise_std else env
+                import matplotlib.pyplot as plt
+                plt.imshow(env.reset() / 255.)
+                plt.show()
+                return env
             return MultiProcessEnv(env_fn, num_envs, should_wait_num_envs_ratio=1.0) if num_envs > 1 else SingleProcessEnv(env_fn)
 
         if self.cfg.training.should:

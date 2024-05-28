@@ -1,5 +1,6 @@
 train:
   _target_: envs.make_atari
+  noise_std: 0.0
   id: null
   size: 64
   max_episode_steps: 20000
@@ -10,6 +11,7 @@ train:
 
 test:
   _target_: ${..train._target_}
+  noise_std: ${..train.noise_std}
   id: ${..train.id}
   size: ${..train.size}
   max_episode_steps: 108000
