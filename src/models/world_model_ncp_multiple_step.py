@@ -124,7 +124,7 @@ class WorldModelNcpMultipleStep(nn.Module):
         assert len(tokens.size()) == 2
         tokens = tokens.to(torch.int64)
         num_steps = tokens.size(1)  # (B, T)
-        prev_steps = step_idx
+        prev_steps = step_idx % self.config.tokens_per_block
         assert num_steps == 1  # For now, we can do only one step at a time as it is a recurrent model
 
         if self.config.pos_emb:
