@@ -12,7 +12,7 @@ import torch.nn as nn
 from dataset import Batch
 from .lpips import LPIPS
 from .nets import Encoder, Decoder
-from utils import LossWithIntermediateLosses
+from utils import LossWithIntermediateLosses, extract_state_dict
 
 
 @dataclass
@@ -23,7 +23,8 @@ class TokenizerEncoderOutput:
 
 
 class Tokenizer(nn.Module):
-    def __init__(self, vocab_size: int, embed_dim: int, encoder: Encoder, decoder: Decoder, with_lpips: bool = True) -> None:
+    def __init__(self, vocab_size: int, embed_dim: int, encoder: Encoder, decoder: Decoder, with_lpips: bool = True,
+                 should_train: bool = True) -> None:
         super().__init__()
         self.vocab_size = vocab_size
         self.encoder = encoder
@@ -33,6 +34,7 @@ class Tokenizer(nn.Module):
         self.decoder = decoder
         self.embedding.weight.data.uniform_(-1.0 / vocab_size, 1.0 / vocab_size)
         self.lpips = LPIPS().eval() if with_lpips else None
+        self.should_train = should_train
 
     def __repr__(self) -> str:
         return "tokenizer"

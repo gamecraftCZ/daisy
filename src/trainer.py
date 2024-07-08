@@ -184,9 +184,10 @@ class Trainer:
 
         w = self.cfg.training.sampling_weights
 
-        if epoch > cfg_tokenizer.start_after_epochs:
-            metrics_tokenizer = self.train_component(self.agent.tokenizer, self.optimizer_tokenizer, sequence_length=1, sample_from_start=True, sampling_weights=w, **cfg_tokenizer)
-        self.agent.tokenizer.eval()
+        if self.agent.tokenizer.should_train:
+            if epoch > cfg_tokenizer.start_after_epochs:
+                metrics_tokenizer = self.train_component(self.agent.tokenizer, self.optimizer_tokenizer, sequence_length=1, sample_from_start=True, sampling_weights=w, **cfg_tokenizer)
+            self.agent.tokenizer.eval()
 
         if epoch > cfg_world_model.start_after_epochs:
             if self.should_train_world_model:
