@@ -43,6 +43,8 @@ class EpisodesDataset:
         assert episode_id in self.episode_id_to_queue_idx
         queue_idx = self.episode_id_to_queue_idx[episode_id]
         merged_episode = self.episodes[queue_idx].merge(new_episode)
+        if new_episode._complete:
+            merged_episode._complete = True
         self.episodes[queue_idx] = merged_episode
         self.newly_modified_episodes.add(episode_id)
 
@@ -61,11 +63,17 @@ class EpisodesDataset:
         self.newly_modified_episodes.add(episode_id)
         return episode_id
 
-    def sample_batch(self, batch_num_samples: int, sequence_length: int, weights: Optional[Tuple[float]] = None, sample_from_start: bool = True) -> Batch:
-        return self._collate_episodes_segments(self._sample_episodes_segments(batch_num_samples, sequence_length, weights, sample_from_start))
+    def sample_batch(self, batch_num_samples: int, sequence_length: int, weights: Optional[Tuple[float]] = None, sample_from_start: bool = True, ignore_last_of_incomplete: int = 0) -> Batch:
+        return self._collate_episodes_segments(self._sample_episodes_segments(batch_num_samples, sequence_length, weights, sample_from_start, ignore_last_of_incomplete))
 
-    def _sample_episodes_segments(self, batch_num_samples: int, sequence_length: int, weights: Optional[Tuple[float]], sample_from_start: bool) -> List[Episode]:
-        num_episodes = len(self.episodes)
+    def _sample_episodes_segments(self, batch_num_samples: int, sequence_length: int, weights: Optional[Tuple[float]], sample_from_start: bool, ignore_last_of_incomplete: int = 0) -> List[Episode]:
+        # ignore_last_of_incomplete ignores last X samples from an incomplete episode
+
+        episodes = [e for e in self.episodes if len(e) >= sequence_length + (0 if e._complete else ignore_last_of_incomplete)]
+        if len(episodes) == 0:
+            return []
+
+        num_episodes = len(episodes)
         num_weights = len(weights) if weights is not None else 0
 
         if num_weights < num_episodes:
@@ -75,15 +83,15 @@ class EpisodesDataset:
             sizes = [num_episodes // num_weights + (num_episodes % num_weights) * (i == num_weights - 1) for i in range(num_weights)]
             weights = [w / s for (w, s) in zip(weights, sizes) for _ in range(s)]
 
-        sampled_episodes: List[Episode] = random.choices(self.episodes, k=batch_num_samples, weights=weights)
+        sampled_episodes: List[Episode] = random.choices(episodes, k=batch_num_samples, weights=weights)
 
         sampled_episodes_segments = []
         for sampled_episode in sampled_episodes:
             if sample_from_start:
-                start = random.randint(0, len(sampled_episode) - 1)
+                start = random.randint(0, len(sampled_episode) - 1 - (0 if sampled_episode._complete else ignore_last_of_incomplete))
                 stop = start + sequence_length
             else:
-                stop = random.randint(1, len(sampled_episode))
+                stop = random.randint(1, len(sampled_episode) - (0 if sampled_episode._complete else ignore_last_of_incomplete))
                 start = stop - sequence_length
             sampled_episodes_segments.append(sampled_episode.segment(start, stop, should_pad=True))
             assert len(sampled_episodes_segments[-1]) == sequence_length
@@ -98,7 +106,10 @@ class EpisodesDataset:
                   'ends': tensor(<episode_count>),
                   'mask_padding': tensor(<episode_count>)}
         """
-        episodes_segments = [e_s.__dict__ for e_s in episodes_segments]
+        if len(episodes_segments) == 0:
+            return None
+
+        episodes_segments = [{k: v for k,v in e_s.__dict__.items() if not k.startswith("_")} for e_s in episodes_segments]
         batch = {}
         for k in episodes_segments[0]:
             batch[k] = torch.stack([e_s[k] for e_s in episodes_segments])

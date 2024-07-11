@@ -25,7 +25,7 @@ class Collector:
         self.heuristic = RandomHeuristic(self.env.num_actions)
 
     @torch.no_grad()
-    def collect(self, agent: Agent, epoch: int, epsilon: float, should_sample: bool, temperature: float, burn_in: int, *, num_steps: Optional[int] = None, num_episodes: Optional[int] = None):
+    def collect(self, agent: Agent, epoch: int, epsilon: float, should_sample: bool, temperature: float, burn_in: int, *, num_steps: Optional[int] = None, num_episodes: Optional[int] = None, returns_gamma: float = 0.99):
         assert self.env.num_actions == agent.world_model.act_vocab_size
         assert 0 <= epsilon <= 1
 
@@ -34,7 +34,7 @@ class Collector:
 
         to_log = []
         steps, episodes = 0, 0
-        returns = []
+        episode_returns = []
         observations, actions, rewards, dones = [], [], [], []
 
         burnin_obs_rec, mask_padding = None, None
@@ -72,7 +72,7 @@ class Collector:
             # Not a problem with a SingleProcessEnv.
 
             if self.env.should_reset():
-                self.add_experience_to_dataset(observations, actions, rewards, dones)
+                self.add_experience_to_dataset(observations, actions, rewards, dones, returns_gamma=returns_gamma, complete=True)
 
                 new_episodes = self.env.num_envs
                 episodes += new_episodes
@@ -85,7 +85,7 @@ class Collector:
                     metrics_episode['episode_num'] = episode_id
                     metrics_episode['action_histogram'] = wandb.Histogram(np_histogram=np.histogram(episode.actions.numpy(), bins=np.arange(0, self.env.num_actions + 1) - 0.5, density=True))
                     to_log.append({f'{self.dataset.name}/{k}': v for k, v in metrics_episode.items()})
-                    returns.append(metrics_episode['episode_return'])
+                    episode_returns.append(metrics_episode['episode_return'])
 
                 self.obs = self.env.reset()
                 self.episode_ids = [None] * self.env.num_envs
@@ -94,7 +94,7 @@ class Collector:
 
         # Add incomplete episodes to dataset, and complete them later.
         if len(observations) > 0:
-            self.add_experience_to_dataset(observations, actions, rewards, dones)
+            self.add_experience_to_dataset(observations, actions, rewards, dones, returns_gamma=returns_gamma, complete=False)
 
         agent.actor_critic.clear()
 
@@ -102,22 +102,24 @@ class Collector:
             '#episodes': len(self.dataset),
             '#steps': sum(map(len, self.dataset.episodes)),
         }
-        if len(returns) > 0:
-            metrics_collect['return'] = np.mean(returns)
+        if len(episode_returns) > 0:
+            metrics_collect['return'] = np.mean(episode_returns)
         metrics_collect = {f'{self.dataset.name}/{k}': v for k, v in metrics_collect.items()}
         to_log.append(metrics_collect)
 
         return to_log
 
-    def add_experience_to_dataset(self, observations: List[np.ndarray], actions: List[np.ndarray], rewards: List[np.ndarray], dones: List[np.ndarray]) -> None:
+    def add_experience_to_dataset(self, observations: List[np.ndarray], actions: List[np.ndarray], rewards: List[np.ndarray], dones: List[np.ndarray], complete: bool, returns_gamma: float = 0.99) -> None:
         assert len(observations) == len(actions) == len(rewards) == len(dones)
         for i, (o, a, r, d) in enumerate(zip(*map(lambda arr: np.swapaxes(arr, 0, 1), [observations, actions, rewards, dones]))):  # Make everything (N, T, ...) instead of (T, N, ...)
             episode = Episode(
+                _complete=complete,
                 observations=torch.ByteTensor(o).permute(0, 3, 1, 2).contiguous(),  # channel-first
                 actions=torch.LongTensor(a),
                 rewards=torch.FloatTensor(r),
                 ends=torch.LongTensor(d),
                 mask_padding=torch.ones(d.shape[0], dtype=torch.bool),
+                _returns_gamma=returns_gamma,
             )
             if self.episode_ids[i] is None:
                 self.episode_ids[i] = self.dataset.add_episode(episode)

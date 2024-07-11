@@ -155,12 +155,12 @@ class Trainer:
 
             if self.cfg.training.should:
                 if epoch <= self.cfg.collection.train.stop_after_epochs:
-                    to_log += self.train_collector.collect(self.agent, epoch, **self.cfg.collection.train.config)
+                    to_log += self.train_collector.collect(self.agent, epoch, **self.cfg.collection.train.config, returns_gamma=self.cfg.training.returns_gamma)
                 to_log += self.train_agent(epoch)
 
             if self.cfg.evaluation.should and (epoch % self.cfg.evaluation.every == 0):
                 self.test_dataset.clear()
-                to_log += self.test_collector.collect(self.agent, epoch, **self.cfg.collection.test.config)
+                to_log += self.test_collector.collect(self.agent, epoch, **self.cfg.collection.test.config, returns_gamma=self.cfg.training.returns_gamma)
                 to_log += self.eval_agent(epoch)
 
             if self.cfg.training.should:
@@ -200,14 +200,16 @@ class Trainer:
 
         return [{'epoch': epoch, **metrics_tokenizer, **metrics_world_model, **metrics_actor_critic}]
 
-    def train_component(self, component: nn.Module, optimizer: torch.optim.Optimizer, steps_per_epoch: int, batch_num_samples: int, grad_acc_steps: int, max_grad_norm: Optional[float], sequence_length: int, sampling_weights: Optional[Tuple[float]], sample_from_start: bool, **kwargs_loss: Any) -> Dict[str, float]:
+    def train_component(self, component: nn.Module, optimizer: torch.optim.Optimizer, steps_per_epoch: int, batch_num_samples: int, grad_acc_steps: int, max_grad_norm: Optional[float], sequence_length: int, sampling_weights: Optional[Tuple[float]], sample_from_start: bool, ignore_last_of_incomplete: int = 0, **kwargs_loss: Any) -> Dict[str, float]:
         loss_total_epoch = 0.0
         intermediate_losses = defaultdict(float)
 
         for _ in tqdm(range(steps_per_epoch), desc=f"Training {str(component)}", file=sys.stdout):
             optimizer.zero_grad()
             for _ in range(grad_acc_steps):
-                batch = self.train_dataset.sample_batch(batch_num_samples, sequence_length, sampling_weights, sample_from_start)
+                batch = self.train_dataset.sample_batch(batch_num_samples, sequence_length, sampling_weights, sample_from_start, ignore_last_of_incomplete)
+                if not batch:
+                    break  # There are no data to train on yet
                 batch = self._to_device(batch)
 
                 losses = component.compute_loss(batch, **kwargs_loss) / grad_acc_steps
@@ -285,7 +287,7 @@ class Trainer:
 
         to_log = []
         for i, (o, a, r, d) in enumerate(zip(outputs.observations.cpu(), outputs.actions.cpu(), outputs.rewards.cpu(), outputs.ends.long().cpu())):  # Make everything (N, T, ...) instead of (T, N, ...)
-            episode = Episode(o, a, r, d, torch.ones_like(d))
+            episode = Episode(observations=o, actions=a, rewards=r, ends=d, mask_padding=torch.ones_like(d))
             episode_id = (epoch - 1 - self.cfg.training.actor_critic.start_after_epochs) * outputs.observations.size(0) + i
             self.episode_manager_imagination.save(episode, episode_id, epoch)
 
