@@ -3,7 +3,7 @@ _target_: models.tokenizer.Tokenizer
 should_train: True
 vocab_size: 512
 embed_dim: 512
-critic_loss_weight: 1
+critic_loss_weight: 0
 encoder:
   _target_: models.tokenizer.Encoder
   config:
