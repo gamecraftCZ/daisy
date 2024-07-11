@@ -3,6 +3,7 @@ _target_: models.tokenizer.Tokenizer
 should_train: True
 vocab_size: 512
 embed_dim: 512
+critic_loss_weight: 1
 encoder:
   _target_: models.tokenizer.Encoder
   config:
@@ -19,3 +20,9 @@ encoder:
 decoder:
   _target_: models.tokenizer.Decoder
   config: ${..encoder.config}
+tokenizer_critic:
+  _target_: models.tokenizer.TokenizerCritic
+  config:
+    hidden_layer_size: 512
+    num_hidden_layers: 2
+    input_size: 8192 # ${...encoder.config.z_channels} * 16

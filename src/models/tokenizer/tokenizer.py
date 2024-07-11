@@ -8,8 +8,10 @@ from typing import Any, Tuple
 from einops import rearrange
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from dataset import Batch
+from .TokenizerCritic import TokenizerCritic
 from .lpips import LPIPS
 from .nets import Encoder, Decoder
 from utils import LossWithIntermediateLosses, extract_state_dict
@@ -23,32 +25,38 @@ class TokenizerEncoderOutput:
 
 
 class Tokenizer(nn.Module):
-    def __init__(self, vocab_size: int, embed_dim: int, encoder: Encoder, decoder: Decoder, with_lpips: bool = True,
-                 should_train: bool = True) -> None:
+    def __init__(self, vocab_size: int, embed_dim: int, critic_loss_weight: int, encoder: Encoder, decoder: Decoder, tokenizer_critic: TokenizerCritic,
+                 with_lpips: bool = True, should_train: bool = True) -> None:
         super().__init__()
         self.vocab_size = vocab_size
+        self.critic_loss_weight = critic_loss_weight
+
         self.encoder = encoder
         self.pre_quant_conv = torch.nn.Conv2d(encoder.config.z_channels, embed_dim, 1)
         self.embedding = nn.Embedding(vocab_size, embed_dim)
         self.post_quant_conv = torch.nn.Conv2d(embed_dim, decoder.config.z_channels, 1)
+
         self.decoder = decoder
         self.embedding.weight.data.uniform_(-1.0 / vocab_size, 1.0 / vocab_size)
         self.lpips = LPIPS().eval() if with_lpips else None
         self.should_train = should_train
+
+        self.critic = tokenizer_critic
 
     def __repr__(self) -> str:
         return "tokenizer"
 
     def forward(self, x: torch.Tensor, should_preprocess: bool = False, should_postprocess: bool = False) -> Tuple[torch.Tensor]:
         outputs = self.encode(x, should_preprocess)
-        decoder_input = outputs.z + (outputs.z_quantized - outputs.z).detach()
+        decoder_input = outputs.z + (outputs.z_quantized - outputs.z).detach()  # = outputs.z_quantized
         reconstructions = self.decode(decoder_input, should_postprocess)
-        return outputs.z, outputs.z_quantized, reconstructions
+        value = self.critic(decoder_input)
+        return outputs.z, outputs.z_quantized, reconstructions, value
 
     def compute_loss(self, batch: Batch, **kwargs: Any) -> LossWithIntermediateLosses:
         assert self.lpips is not None
         observations = self.preprocess_input(rearrange(batch['observations'], 'b t c h w -> (b t) c h w'))
-        z, z_quantized, reconstructions = self(observations, should_preprocess=False, should_postprocess=False)
+        z, z_quantized, reconstructions, value = self(observations, should_preprocess=False, should_postprocess=False)
 
         # Codebook loss. Notes:
         # - beta position is different from taming and identical to original VQVAE paper
@@ -59,7 +67,11 @@ class Tokenizer(nn.Module):
         reconstruction_loss = torch.abs(observations - reconstructions).mean()
         perceptual_loss = torch.mean(self.lpips(observations, reconstructions))
 
-        return LossWithIntermediateLosses(commitment_loss=commitment_loss, reconstruction_loss=reconstruction_loss, perceptual_loss=perceptual_loss)
+        # Value loss
+        returns = batch['returns']
+        value_loss = F.mse_loss(value, returns) * self.critic_loss_weight
+
+        return LossWithIntermediateLosses(commitment_loss=commitment_loss, reconstruction_loss=reconstruction_loss, perceptual_loss=perceptual_loss, value_loss=value_loss)
 
     def encode(self, x: torch.Tensor, should_preprocess: bool = False) -> TokenizerEncoderOutput:
         if should_preprocess:
