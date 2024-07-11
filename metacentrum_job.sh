@@ -55,4 +55,4 @@ trap on_exit TERM EXIT
 cp -r $HOME_DIR/jobs/iris_default $SCRATCHDIR
 cd $SCRATCHDIR/iris_default
 echo "Running main.py with ADD_ARGS: $ADD_ARGS"
-python src/main.py env.train.id=BreakoutNoFrameskip-v4 common.device=cuda:0 wandb.mode=online $ADD_ARGS
+python src/main.py env.train.id=BreakoutNoFrameskip-v4 common.device=cuda:0 wandb.mode=online initialization.path_to_checkpoint=$SCRATCHDIR/iris_default/$CHECKPOINT_PATH $ADD_ARGS
