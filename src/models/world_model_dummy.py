@@ -2,8 +2,10 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Optional
 
+import numpy as np
 import torch
 import torch.nn as nn
+from gym.wrappers import TransformObservation
 from hydra.utils import instantiate
 
 from envs import SingleProcessEnv
@@ -32,7 +34,18 @@ class WorldModelDummy(nn.Module):
         self.device = device
 
         def create_env(cfg_env):
-            env_fn = partial(instantiate, config=cfg_env)
+            def env_fn(*args, **kwargs):
+                cfg = {**cfg_env}
+                del cfg["noise_std"]
+                env = partial(instantiate, config=cfg)(*args, **kwargs)
+                env = TransformObservation(env, lambda obs: np.clip(
+                    (obs + np.random.randn(*obs.shape) * 255. * cfg_env.noise_std)
+                    , 0, 255.)
+                                           ) if cfg_env.noise_std else env
+                # import matplotlib.pyplot as plt
+                # plt.imshow(env.reset() / 255.)
+                # plt.show()
+                return env
             return SingleProcessEnv(env_fn)
 
         self.envs = [create_env(config.env) for env in range(env_count)]
@@ -54,7 +67,8 @@ class WorldModelDummy(nn.Module):
         obs = []
         rewards = []
         ends = []
-        for i, env in enumerate(self.envs):
+        for i in range(len(tokens)):
+            env = self.envs[i]
             _obs, _reward, _done, _ = env.step(tokens[i])
             obs.append(torch.squeeze(torch.FloatTensor(_obs).div(255), dim=0).permute(2, 0, 1))
             rewards.append(torch.FloatTensor(_reward))
