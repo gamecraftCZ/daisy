@@ -14,7 +14,7 @@ from dataset import Batch
 from .TokenizerCritic import TokenizerCritic
 from .lpips import LPIPS
 from .nets import Encoder, Decoder
-from utils import LossWithIntermediateLosses, extract_state_dict
+from utils import LossWithIntermediateLosses
 
 
 @dataclass
@@ -41,7 +41,10 @@ class Tokenizer(nn.Module):
         self.lpips = LPIPS().eval() if with_lpips else None
         self.should_train = should_train
 
-        self.critic = tokenizer_critic
+        if self.critic_loss_weight > 0:
+            self.critic = tokenizer_critic
+        else:
+            self.critic = lambda x: torch.zeros(x.shape[0], 1, device=x.device)
 
     def __repr__(self) -> str:
         return "tokenizer"
