@@ -1,34 +1,14 @@
-# Transformers are Sample Efficient World Models (IRIS)
+# Experiments on IRIS world model
 
-[Transformers are Sample Efficient World Models](https://arxiv.org/abs/2209.00588) <br>
-[Vincent Micheli](https://vmicheli.github.io)\*, [Eloi Alonso](https://eloialonso.github.io)\*, [François Fleuret](https://fleuret.org/francois/) <br>
-\* Denotes equal contribution
+- Project by Patrik Vácal.
+- This repository contains experiments built on top of IRIS world model.
+- Original code from https://github.com/eloialonso/iris
 
-
-<div align='center'>
-  IRIS agent after 100k environment steps, i.e. two hours of real-time experience
-  <img alt="IRIS playing on Asterix, Boxing, Breakout, Demon Attack, Freeway, Gopher, Kung Fu Master, Pong" src="assets/iris.gif">
-</div>
-
-**tl;dr**
-
-- IRIS is a data-efficient agent trained over millions of imagined trajectories in a world model.
-- The world model is composed of a discrete autoencoder and an autoregressive Transformer.
-- Our approach casts dynamics learning as a sequence modeling problem, where the autoencoder builds a language of image tokens and the Transformer composes that language over time.
-
-
-## BibTeX
-
-If you find this code or paper useful, please use the following reference:
-
-```
-@article{iris2022,
-  title={Transformers are Sample Efficient World Models},
-  author={Micheli, Vincent and Alonso, Eloi and Fleuret, François},
-  journal={arXiv preprint arXiv:2209.00588},
-  year={2022}
-}
-```
+## Implemented experiments on top of IRIS
+- Pretrained transformer model as the world model.
+- Pretrained VQ-VAE model for the world model.
+- Different architectures for the world model.
+- Different losses for VQ-VAE model.
 
 ## Setup
 
@@ -107,23 +87,10 @@ outputs/YYYY-MM-DD/hh-mm-ss/
     - Press '`,`' to start and stop recording. The corresponding segment is saved in `media/recordings` in mp4 and numpy formats.
     - Add the flag `-s` to enter 'save mode', where the user is prompted to save trajectories upon completion.
 
-## Results notebook
-
-The folder `results/data/` contains raw scores (for each game, and for each training run) for IRIS and the baselines.
-
-Use the notebook `results/results_iris.ipynb` to reproduce the figures from the paper.
-
-## Pretrained models
-
-Pretrained models are available [here](https://github.com/eloialonso/iris_pretrained_models).
-
-- To start a training run from one of these checkpoints, in the section `initialization` of  `config/trainer.yaml`, set `path_to_checkpoint` to the corresponding path, and `load_tokenizer`, `load_world_model`, and `load_actor_critic` to `True`.
-
-- To visualize one of these checkpoints, set `train.id` to the corresponding game in `config/env/default.yaml`, create a `checkpoints` directory and copy the checkpoint to `checkpoints/last.pt`. You can then visualize the agent with `./scripts/play.sh` as described above.
-
 ## Credits
 
 - [https://github.com/pytorch/pytorch](https://github.com/pytorch/pytorch)
 - [https://github.com/CompVis/taming-transformers](https://github.com/CompVis/taming-transformers)
 - [https://github.com/karpathy/minGPT](https://github.com/karpathy/minGPT)
 - [https://github.com/google-research/rliable](https://github.com/google-research/rliable)
+- [https://github.com/eloialonso/iris](https://github.com/eloialonso/iris)
