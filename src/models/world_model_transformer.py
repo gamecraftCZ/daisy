@@ -78,6 +78,9 @@ class WorldModelTransformer(nn.Module):
 
         self.apply(init_weights_wm_transformer)
 
+        if config.pretrained_weights:
+            self.transformer.load_pretrained(config.pretrained_weights)
+
     def __repr__(self) -> str:
         return "world_model_transformer"
 

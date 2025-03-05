@@ -54,9 +54,6 @@ class Transformer(nn.Module):
         if config.post_transformer_layer:
             self.ln_post_transformer = nn.Linear(config.embed_dim, config.embed_dim)
 
-        if config.pretrained_weights:
-            self.load_pretrained(config.pretrained_weights)
-
         if config.frozen:
             # Frozen as in Pretrained Transformers as Universal Computation Engines (https://arxiv.org/abs/2103.05247)
             # Frozen AttentionBlocks except for layer norm.
@@ -67,7 +64,7 @@ class Transformer(nn.Module):
 
         print("Transformer: \n", self)
 
-    def load_pretrained(self, model_type):
+    def load_pretrained(self, model_type: str):
         # Credits to https://github.com/karpathy/minGPT/blob/master/mingpt/model.py#L175
 
         """
