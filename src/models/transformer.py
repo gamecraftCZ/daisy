@@ -57,7 +57,6 @@ class Transformer(nn.Module):
         if config.frozen:
             # Frozen as in Pretrained Transformers as Universal Computation Engines (https://arxiv.org/abs/2103.05247)
             # Frozen AttentionBlocks except for layer norm.
-            assert config.pretrained_weights  # Frozen should be done only on pretrained model
             if type(config.frozen) is int:
                 for block in self.blocks[:-config.frozen]:
                     for param in [*block.attn.parameters(), *block.mlp.parameters()]:
