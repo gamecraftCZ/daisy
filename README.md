@@ -4,12 +4,17 @@
 - This codebase is built on top of IRIS world model (https://github.com/eloialonso/iris).
 
 ## Implemented experiments
+
+List of all the experiments we implemented in this codebase on top of IRIS world model.
+Only the most promising of them were used in the thesis because of limited time and resources.
+
 - Using pretrained GPT2 transformer model as the world model.
 - Freezing transformer world model layers.
 - Loading and fixing pretrained models VQ-VAE model for the world model.
 - Neural Control Policies (NCP) world model with single-step predictions of all next state tokens.
 - Neural Control Policies (NCP) world model with multi-step autoregressive predictions of next state tokens.
 - Different losses for VQ-VAE model.
+- Adding noise to the observations to see how world models deal with it.
 
 ## Setup
 
