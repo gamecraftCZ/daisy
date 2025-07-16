@@ -49,22 +49,18 @@ class WorldModelNcpMultipleStep(nn.Module):
         self.drop = nn.Dropout(config.embed_pdrop)
 
         # Embedding
-        # TODO should I use the all_but_last_obs_tokens_pattern in head_observations as in Transformer?
-        # all_but_last_obs_tokens_pattern = torch.ones(config.tokens_per_block)
-        # all_but_last_obs_tokens_pattern[-2] = 0
         all_but_last_obs_tokens_pattern = torch.ones(config.tokens_per_block)  # eg. [1, 1, 1, 1, 1, 1, 0, 1]
         all_but_last_obs_tokens_pattern[-2] = 0
         act_tokens_pattern = torch.zeros(self.config.tokens_per_block)         # eg. [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
         act_tokens_pattern[-1] = 1
         obs_tokens_pattern = 1 - act_tokens_pattern                            # eg. [1, 1, 1, 1, 1, 1, 1, 0]
 
-        # TODO WorldModelNcpMultipleStep - positional embedding yes or no?
         if self.config.pos_emb:
             self.pos_emb = nn.Embedding(config.max_tokens, config.embed_dim)
 
         # This embeds actions and observations with different embedder
         self.embedder = Embedder(
-            max_blocks=config.max_blocks,  # TODO What does max_blocks do in the Embedder (extends Slicer)?
+            max_blocks=config.max_blocks,
             block_masks=[act_tokens_pattern, obs_tokens_pattern],
             embedding_tables=nn.ModuleList([
                 nn.Embedding(act_vocab_size, config.embed_dim),
@@ -78,9 +74,6 @@ class WorldModelNcpMultipleStep(nn.Module):
                      return_sequences=True)  # (i < config.num_layers - 1))
              for _ in range(config.num_layers)
         ])
-
-        # self.ncp_layer_wiring = AutoNCP(config.ncp_units, config.embed_dim)
-        # self.ncp_layer_1 = CfC(config.embed_dim, self.ncp_layer_wiring)  # 16 for observation + 1 for action
 
         # Heads
         self.head_observations = Head(
@@ -119,8 +112,6 @@ class WorldModelNcpMultipleStep(nn.Module):
         return "world_model_ncp_multiple_step"
 
     def forward(self, tokens: torch.IntTensor, hidden_state: Optional[Tuple] = None, step_idx: int = 0) -> WorldModelOutput:
-        # TODO is step_idx used the right way. No it embeds it's position in the frames sequence * 16.
-        #  I think it should be the position in the sequence of steps of single frame, not all frames.
         assert len(tokens.size()) == 2
         tokens = tokens.to(torch.int64)
         num_steps = tokens.size(1)  # (B, T)
@@ -140,10 +131,6 @@ class WorldModelNcpMultipleStep(nn.Module):
             x, h_state = layer(x, hidden_state[i] if hidden_state else None)
             new_hidden_states.append(h_state)
 
-        # logits_observations = self.head_observations(x).reshape(tokens.size(0), tokens.size(1), -1)
-        # logits_rewards = self.head_rewards(x)
-        # logits_ends = self.head_ends(x)
-
         logits_observations = self.head_observations(x, num_steps=num_steps, prev_steps=prev_steps)
         logits_rewards = self.head_rewards(x, num_steps=num_steps, prev_steps=prev_steps)
         logits_ends = self.head_ends(x, num_steps=num_steps, prev_steps=prev_steps)
@@ -157,13 +144,10 @@ class WorldModelNcpMultipleStep(nn.Module):
         obs_tokens = tokenizer_out.tokens
         act_tokens = rearrange(batch['actions'], 'b l -> b l 1')
         tokens = rearrange(torch.cat((obs_tokens, act_tokens), dim=2), 'b l k1 -> b (l k1)')  # (B, L(K+1))
-        # tokens = torch.cat((obs_tokens, act_tokens), dim=2)  # (B, L, K)
 
         outputs = []
         hidden_state = None
         for i in range(tokens.size(1)):
-            # TODO Should I really use step_idx=i here? Step_idx will be up to 340, but in real world model it will be only up to 16.
-            #  like: (i % 16) + 1
             output = self(tokens[:, i:i+1], hidden_state, i)  # forward() is called here
             outputs.append(output)
             hidden_state = output.hidden_state
@@ -183,11 +167,6 @@ class WorldModelNcpMultipleStep(nn.Module):
         loss_rewards = F.cross_entropy(rearrange(outputs.logits_rewards, 'b t e -> (b t) e'), labels_rewards)
         loss_ends = F.cross_entropy(rearrange(outputs.logits_ends, 'b t e -> (b t) e'), labels_ends)
 
-        # logits_observations = rearrange(outputs.logits_observations[:, :-1], 'b t e o -> (b t e) o')
-        # loss_obs = F.cross_entropy(logits_observations, labels_observations)
-        # loss_rewards = F.cross_entropy(rearrange(outputs.logits_rewards, 'b t e -> (b t) e'), labels_rewards)
-        # loss_ends = F.cross_entropy(rearrange(outputs.logits_ends, 'b t e -> (b t) e'), labels_ends)
-
         return LossWithIntermediateLosses(loss_obs=loss_obs, loss_rewards=loss_rewards, loss_ends=loss_ends)
 
 
@@ -199,15 +178,6 @@ class WorldModelNcpMultipleStep(nn.Module):
         labels_ends = ends.masked_fill(mask_fill, -100)
         return labels_observations.reshape(-1), labels_rewards.reshape(-1), labels_ends.reshape(-1)
 
-    # def compute_labels_world_model(self, obs_tokens: torch.Tensor, rewards: torch.Tensor, ends: torch.Tensor, mask_padding: torch.BoolTensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    #     assert torch.all(ends.sum(dim=1) <= 1)  # at most 1 done
-    #     mask_fill = torch.logical_not(mask_padding)
-    #     labels_observations = rearrange(obs_tokens.masked_fill(mask_fill.unsqueeze(-1).expand_as(obs_tokens), -100)[:, 1:], 'b t k -> b (t k)')
-    #     labels_rewards = (rewards.sign() + 1).masked_fill(mask_fill, -100).long()  # Rewards clipped to {-1, 0, 1}
-    #     labels_ends = ends.masked_fill(mask_fill, -100)
-    #     # return labels_observations, labels_rewards, labels_ends
-    #     return labels_observations.reshape(-1), labels_rewards.reshape(-1), labels_ends.reshape(-1)
-
 
 class NcpBlock(nn.Module):
     def __init__(self, embed_dim: int, ncp_units: int, pdrop: float, ncp_layer_norm: Optional[bool] = True, return_sequences=False) -> None:
@@ -215,7 +185,6 @@ class NcpBlock(nn.Module):
         self.wiring = AutoNCP(ncp_units, embed_dim)
         self.ncp = CfC(embed_dim, self.wiring, return_sequences=return_sequences)
         self.drop = nn.Dropout(pdrop)
-        # TODO layer norm ?
         self.norm = nn.LayerNorm(embed_dim) if ncp_layer_norm else nn.Identity()
 
     def forward(self, x: torch.Tensor, hidden_state=None) -> [torch.Tensor, torch.Tensor]:

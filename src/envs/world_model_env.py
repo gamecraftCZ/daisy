@@ -66,11 +66,8 @@ class WorldModelEnv:
             self.keys_values_wm_hidden_state = outputs_wm.hidden_state  # default hidden state is None
             return outputs_wm.output_sequence  # (B, K, E)
 
-        # TODO elif isinstance(self.world_model, WorldModelNcpMultipleStep):
         elif isinstance(self.world_model, WorldModelNcpMultipleStep):
-            # TODO change tokens size to work with WorldModelNcpMultipleStep
             tokens = torch.zeros(n, 1, device=self.device)
-            # tokens = torch.cat((obs_tokens.unsqueeze(1), torch.zeros(obs_tokens.size(0), 1, 1).to(self.device)), dim=2)  # (B, L, K)
             outputs_wm = self.world_model(tokens)
             self.keys_values_wm_hidden_state = outputs_wm.hidden_state  # default hidden state is None
             return outputs_wm.output_sequence  # (B, K, E)
@@ -121,8 +118,6 @@ class WorldModelEnv:
             obs_logits = outputs_wm.logits_observations.reshape(outputs_wm.logits_observations.size(0), -1, self.world_model.obs_vocab_size)
             obs_tokens = Categorical(logits=obs_logits).sample()
 
-        # TODO make NCP work like Transformers implementation
-        #  where predictions of next tokens of single frame is dependent on previous tokens sampling.
         elif isinstance(self.world_model, WorldModelNcpMultipleStep):
             for k in range(num_passes):  # assumption that there is only one action token.
                 outputs_wm = self.world_model(action_token, hidden_state=self.keys_values_wm_hidden_state, step_idx=k+16)

@@ -8,5 +8,5 @@ ncp_multiple_step:
   num_layers: 1
   ncp_layer_norm: True
   pos_emb: True
-  max_blocks: ${common.sequence_length}  # TODO WTF this means?
+  max_blocks: ${common.sequence_length}
   tokens_per_block: 17                   # So the Embedder knows. 16 obs + 1 action

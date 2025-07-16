@@ -6,7 +6,6 @@ import shutil
 import sys
 import time
 from typing import Any, Dict, Optional, Tuple
-from uuid import uuid4
 
 import hydra
 import numpy as np
@@ -83,9 +82,6 @@ class Trainer:
                     (obs + np.random.randn(*obs.shape) * 255. * cfg_env.noise_std)
                     , 0, 255.)
                                            ) if cfg_env.noise_std else env
-                # import matplotlib.pyplot as plt
-                # plt.imshow(env.reset() / 255.)
-                # plt.show()
                 return env
             return MultiProcessEnv(env_fn, num_envs, should_wait_num_envs_ratio=1.0) if num_envs > 1 else SingleProcessEnv(env_fn)
 

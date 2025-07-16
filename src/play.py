@@ -31,9 +31,6 @@ def main(cfg: DictConfig):
             (obs + np.random.randn(*obs.shape) * 255. * cfg.env.test.noise_std)
             , 0, 255.)
                                    ) if cfg.env.test.noise_std else env
-        # import matplotlib.pyplot as plt
-        # plt.imshow(env.reset() / 255.)
-        # plt.show()
         return env
     test_env = SingleProcessEnv(env_fn)
 

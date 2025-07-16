@@ -20,10 +20,6 @@ class WorldModelOutput:
     logits_rewards: torch.FloatTensor
     logits_ends: torch.FloatTensor
 
-# @dataclass
-# class DummyWorldModelConfig:
-#     env_id: str
-
 
 class WorldModelDummy(nn.Module):
     def __init__(self, tokenizer: Tokenizer, obs_vocab_size: int, act_vocab_size: int, config, env_count, device) -> None:
@@ -42,9 +38,6 @@ class WorldModelDummy(nn.Module):
                     (obs + np.random.randn(*obs.shape) * 255. * cfg_env.noise_std)
                     , 0, 255.)
                                            ) if cfg_env.noise_std else env
-                # import matplotlib.pyplot as plt
-                # plt.imshow(env.reset() / 255.)
-                # plt.show()
                 return env
             return SingleProcessEnv(env_fn)
 
@@ -82,12 +75,3 @@ class WorldModelDummy(nn.Module):
         ends = torch.stack(ends).squeeze(dim=-1).to(self.device)
 
         return WorldModelOutput(torch.FloatTensor([]), tokens, rewards, ends)
-
-
-    # def compute_labels_world_model(self, obs_tokens: torch.Tensor, rewards: torch.Tensor, ends: torch.Tensor, mask_padding: torch.BoolTensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    #     assert torch.all(ends.sum(dim=1) <= 1)  # at most 1 done
-    #     mask_fill = torch.logical_not(mask_padding)
-    #     labels_observations = rearrange(obs_tokens.masked_fill(mask_fill.unsqueeze(-1).expand_as(obs_tokens), -100), 'b t k -> b (t k)')[:, 1:]
-    #     labels_rewards = (rewards.sign() + 1).masked_fill(mask_fill, -100).long()  # Rewards clipped to {-1, 0, 1}
-    #     labels_ends = ends.masked_fill(mask_fill, -100)
-    #     return labels_observations.reshape(-1), labels_rewards.reshape(-1), labels_ends.reshape(-1)

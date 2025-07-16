@@ -100,8 +100,6 @@ class ActorCritic(nn.Module):
 
         return ActorCriticOutput(logits_actions, means_values)
 
-    # TODO this compute_loss does not work efficiently with the recurrent model I guess?
-    #  That's because RNN is able of predicting multiple next observations.
     def compute_loss(self, batch: Batch, tokenizer: Tokenizer, world_model: WorldModelTransformer, imagine_horizon: int, gamma: float, lambda_: float, entropy_weight: float, **kwargs: Any) -> LossWithIntermediateLosses:
         assert not self.use_original_obs
         outputs = self.imagine(batch, tokenizer, world_model, horizon=imagine_horizon)

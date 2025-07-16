@@ -44,16 +44,13 @@ class WorldModelNcpSingleStep(nn.Module):
         self.drop = nn.Dropout(config.embed_pdrop)
 
         # Embedding
-        # TODO should I use the all_but_last_obs_tokens_pattern in head_observations as in Transformer?
-        # all_but_last_obs_tokens_pattern = torch.ones(config.tokens_per_block)
-        # all_but_last_obs_tokens_pattern[-2] = 0
         act_tokens_pattern = torch.zeros(self.config.tokens_per_block)
         act_tokens_pattern[-1] = 1
         obs_tokens_pattern = 1 - act_tokens_pattern
 
         # This embeds actions and observations with different embedder
         self.embedder = Embedder(
-            max_blocks=config.max_blocks,  # TODO What does max_blocks do in the Embedder (extends Slicer)?
+            max_blocks=config.max_blocks,
             block_masks=[act_tokens_pattern, obs_tokens_pattern],
             embedding_tables=nn.ModuleList([
                 nn.Embedding(act_vocab_size, config.embed_dim),
@@ -68,15 +65,11 @@ class WorldModelNcpSingleStep(nn.Module):
              for i in range(config.num_layers)
         ])
 
-        # self.ncp_layer_wiring = AutoNCP(config.ncp_units, config.embed_dim)
-        # self.ncp_layer_1 = CfC(config.embed_dim, self.ncp_layer_wiring)  # 16 for observation + 1 for action
-
         # Heads
-        # TODO should I use deembedding for observations head?
         self.head_observations = nn.Sequential(
             nn.Linear(config.embed_dim * 17, config.embed_dim * 17),
             nn.ReLU(),
-            nn.Linear(config.embed_dim * 17, obs_vocab_size * 16)  # TODO 16 means 16 tokens per step, maybe predict one by one as in transformer?
+            nn.Linear(config.embed_dim * 17, obs_vocab_size * 16)
         )
 
         self.head_rewards = nn.Sequential(
@@ -101,7 +94,6 @@ class WorldModelNcpSingleStep(nn.Module):
         num_steps = tokens.size(2)  # (B, T)
         prev_steps = 0
 
-        # tokens_flat = tokens.reshape([*tokens.size()[:2], -1]).to(torch.int64)
         assert len(tokens.size()) == 3
         assert tokens.size(2) == 17  # 16 for observation + 1 for action
 
@@ -125,7 +117,6 @@ class WorldModelNcpSingleStep(nn.Module):
 
         obs_tokens = tokenizer_out.tokens
         act_tokens = rearrange(batch['actions'], 'b l -> b l 1')
-        # tokens = rearrange(torch.cat((obs_tokens, act_tokens), dim=2), 'b l k1 -> b (l k1)')  # (B, L(K+1))
         tokens = torch.cat((obs_tokens, act_tokens), dim=2)  # (B, L, K)
 
         outputs = self(tokens)  # forward() is called here
@@ -145,7 +136,6 @@ class WorldModelNcpSingleStep(nn.Module):
         labels_observations = rearrange(obs_tokens.masked_fill(mask_fill.unsqueeze(-1).expand_as(obs_tokens), -100)[:, 1:], 'b t k -> b (t k)')
         labels_rewards = (rewards.sign() + 1).masked_fill(mask_fill, -100).long()  # Rewards clipped to {-1, 0, 1}
         labels_ends = ends.masked_fill(mask_fill, -100)
-        # return labels_observations, labels_rewards, labels_ends
         return labels_observations.reshape(-1), labels_rewards.reshape(-1), labels_ends.reshape(-1)
 
 
@@ -155,7 +145,6 @@ class NcpBlock(nn.Module):
         self.wiring = AutoNCP(ncp_units, embed_dim)
         self.ncp = CfC(embed_dim, self.wiring, return_sequences=return_sequences)
         self.drop = nn.Dropout(pdrop)
-        # TODO layer norm ?
         self.norm = nn.LayerNorm(embed_dim) if ncp_layer_norm else nn.Identity()
 
     def forward(self, x: torch.Tensor, hidden_state=None) -> [torch.Tensor, torch.Tensor]:
