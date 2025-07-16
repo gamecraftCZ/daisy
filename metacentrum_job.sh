@@ -9,6 +9,13 @@
 
 HOME_DIR=/storage/plzen1/home/patrikvacal
 
+# Load .env file from $HOME_DIR/jobs/iris_default/.env
+if [ -f $HOME_DIR/jobs/iris_default/.env ]; then
+  export $(cat $HOME_DIR/jobs/iris_default/.env | xargs)
+else
+  echo ".env file not found in $HOME_DIR/jobs/iris_default/.env"
+fi
+
 ### Check for Weights and Biases API key ###
 if test -z $WANDB_API_KEY
 then
