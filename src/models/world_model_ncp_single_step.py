@@ -28,6 +28,7 @@ class WorldModelOutput:
 class NcpConfigSingleStep:
     ncp_units: int
     embed_dim: int
+    hidden_layers_output_dim: int
     num_layers: int
     embed_pdrop: float
     blocks_pdrop: float
@@ -60,26 +61,26 @@ class WorldModelNcpSingleStep(nn.Module):
 
         # NCP layers
         self.ncp_layers = nn.ModuleList([
-            NcpBlock(config.embed_dim * 17, config.ncp_units, config.blocks_pdrop, config.ncp_layer_norm,
+            NcpBlock(config.hidden_layers_output_dim, config.ncp_units, config.blocks_pdrop, config.ncp_layer_norm,
                      return_sequences=True)  # (i < config.num_layers - 1))
              for i in range(config.num_layers)
         ])
 
         # Heads
         self.head_observations = nn.Sequential(
-            nn.Linear(config.embed_dim * 17, config.embed_dim * 17),
+            nn.Linear(config.hidden_layers_output_dim, config.hidden_layers_output_dim),
             nn.ReLU(),
-            nn.Linear(config.embed_dim * 17, obs_vocab_size * 16)
+            nn.Linear(config.hidden_layers_output_dim, obs_vocab_size * 16)
         )
 
         self.head_rewards = nn.Sequential(
-            nn.Linear(config.embed_dim * 17, config.embed_dim),
+            nn.Linear(config.hidden_layers_output_dim, config.embed_dim),
             nn.ReLU(),
             nn.Linear(config.embed_dim, 3)
         )
 
         self.head_ends = nn.Sequential(
-            nn.Linear(config.embed_dim * 17, config.embed_dim),
+            nn.Linear(config.hidden_layers_output_dim, config.embed_dim),
             nn.ReLU(),
             nn.Linear(config.embed_dim, 2)
         )
@@ -140,12 +141,12 @@ class WorldModelNcpSingleStep(nn.Module):
 
 
 class NcpBlock(nn.Module):
-    def __init__(self, embed_dim: int, ncp_units: int, pdrop: float, ncp_layer_norm: Optional[bool] = True, return_sequences=False) -> None:
+    def __init__(self, output_size: int, ncp_units: int, pdrop: float, ncp_layer_norm: Optional[bool] = True, return_sequences=False) -> None:
         super().__init__()
-        self.wiring = AutoNCP(ncp_units, embed_dim)
-        self.ncp = CfC(embed_dim, self.wiring, return_sequences=return_sequences)
+        self.wiring = AutoNCP(ncp_units, output_size)
+        self.ncp = CfC(output_size, self.wiring, return_sequences=return_sequences)
         self.drop = nn.Dropout(pdrop)
-        self.norm = nn.LayerNorm(embed_dim) if ncp_layer_norm else nn.Identity()
+        self.norm = nn.LayerNorm(output_size) if ncp_layer_norm else nn.Identity()
 
     def forward(self, x: torch.Tensor, hidden_state=None) -> [torch.Tensor, torch.Tensor]:
         x = self.norm(x)

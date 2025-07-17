@@ -1,11 +1,12 @@
 type: "ncp_single_step"
 ncp_single_step:
   _target_: models.NcpConfigSingleStep
-  ncp_units: 4355  # Must be at least embed_dim * 17 + 3
-  embed_dim: 256
+  ncp_units: 3264  # Must be at least hidden_layers_output_dim + 3
+  embed_dim: 128
+  hidden_layers_output_dim: 2176  # We set this to embed_dim * 17 for all experiments
   embed_pdrop: 0.1
   blocks_pdrop: 0.1
-  num_layers: 1
+  num_layers: 2
   ncp_layer_norm: True
   max_blocks: ${common.sequence_length}
   tokens_per_block: 17                   # So the Embedder knows. 16 obs + 1 action
