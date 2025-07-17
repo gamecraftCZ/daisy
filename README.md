@@ -6,7 +6,7 @@
 ## Implemented experiments
 
 List of all the experiments we implemented in this codebase on top of IRIS world model.
-Only the most promising of them were used in the thesis because of limited time and resources.
+In our thesis, we explored only the most promising (based on preliminary results) of them because of limited time and resources.
 
 - Using pretrained GPT2 transformer model as the world model.
 - Freezing transformer world model layers.
