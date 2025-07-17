@@ -10,8 +10,8 @@ In our thesis, we explored only the most promising (based on preliminary results
 
 - Using pretrained GPT2 transformer model as the world model.
 - Freezing transformer world model layers.
-- Loading and fixing pretrained models VQ-VAE model for the world model.
-- Neural Control Policies (NCP) world model with single-step predictions of all next state tokens.
+- Loading and fixing pretrained VQ-VAE model for the world model.
+- Neural Control Policies (NCP) world model with single-step predictions of all next state tokens at once.
 - Neural Control Policies (NCP) world model with multi-step autoregressive predictions of next state tokens.
 - Different losses for VQ-VAE model.
 - Adding noise to the observations to see how world models deal with it.
@@ -31,7 +31,7 @@ By default, the logs are synced to [weights & biases](https://wandb.ai), set `wa
 1. Login to Weights & Biases in terminal with `wandb login`
 2. Run the training script with desired configuration parameters (PARAM=VALUE):
 ```bash
-python src/main.py env.train.id=<ENV_NAME> <OTHER_CONFIG_PARAMETERS in format PARAM=VALUE>
+python src/main.py env.train.id=<ENV_NAME> <OTHER_CONFIG_PARAMETERS in format: ++PARAM=VALUE>
 ```
 
 ### Train in MetaCentrum
@@ -41,7 +41,7 @@ python src/main.py env.train.id=<ENV_NAME> <OTHER_CONFIG_PARAMETERS in format PA
    - Fill in the `WANDB_API_KEY`
 2. Submit the job to MetaCentrum with the following command:
 ```bash
-bash metacentrum_job.sh env.train.id=<ENV_NAME> <OTHER_CONFIG_PARAMETERS in format PARAM=VALUE>
+bash metacentrum_job.sh env.train.id=<ENV_NAME> <OTHER_CONFIG_PARAMETERS in format: ++PARAM=VALUE>
 ```
 
 ## Configuration
